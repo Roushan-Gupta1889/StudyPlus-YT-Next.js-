@@ -14,6 +14,9 @@ import {
   Download,
   History,
   Menu,
+  Layers,
+  Library,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,13 +24,14 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/app/dashboard" },
-  { icon: PlayCircle, label: "Watch", href: "/app/watch" },
-  { icon: History, label: "History", href: "/app/history" },
+  { icon: Folder, label: "Library", href: "/app/watch" },
+  
   { icon: PlayCircle, label: "Videos", href: "/app/videos" },
   { icon: ListVideo, label: "Playlists", href: "/app/playlists" },
   { icon: FileText, label: "Notes", href: "/app/notes" },
   { icon: BarChart3, label: "Analytics", href: "/app/analytics" },
   { icon: Download, label: "Install App", href: "/install", mobileOnly: true },
+  { icon: History, label: "History", href: "/app/history" },
 ];
 
 interface AppSidebarProps {

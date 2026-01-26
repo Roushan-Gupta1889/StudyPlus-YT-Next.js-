@@ -150,21 +150,7 @@ export default function PlaylistsPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleUpdateDurations}
-            disabled={updating}
-            size="sm"
-          >
-            {updating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Updating...
-              </>
-            ) : (
-              "Update Durations"
-            )}
-          </Button>
+         
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>

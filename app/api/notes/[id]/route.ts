@@ -6,8 +6,9 @@ import { prisma } from "@/lib/prisma";
 // PATCH /api/notes/[id] - Update note
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions);
 
@@ -47,8 +48,9 @@ export async function PATCH(
 // DELETE /api/notes/[id] - Delete note
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions);
 

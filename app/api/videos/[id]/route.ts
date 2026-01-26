@@ -99,10 +99,14 @@ export async function DELETE(
             return NextResponse.json({ error: "Not found" }, { status: 404 });
         }
 
-        await prisma.video.delete({
+        // Soft delete: Remove from library view but keep record for playlists/history
+        await prisma.video.update({
             where: {
                 id,
             },
+            data: {
+                inLibrary: false,
+            }
         });
 
         return NextResponse.json({ success: true });

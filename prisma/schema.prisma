@@ -41,6 +41,7 @@ model Video {
   channel     String?
   progress    Int      @default(0) // percentage 0-100
   completed   Boolean  @default(false)
+  inLibrary   Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { ArrowLeft, Loader2, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Check, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,6 +42,7 @@ export default function WatchPage({
   const [mounted, setMounted] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
+  const [showPlaylist, setShowPlaylist] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -82,11 +83,11 @@ export default function WatchPage({
       if (!response.ok) return;
       const videos = await response.json();
       setPlaylistVideos(videos);
-      
+
       // Calculate completed count
       const completedVideos = videos.filter((v: any) => v.completed).length;
       setCompletedCount(completedVideos);
-      
+
       const index = videos.findIndex((v: any) => v.id === id);
       if (index >= 0) {
         setCurrentIndex(index);
@@ -109,17 +110,17 @@ export default function WatchPage({
       // Update completed state
       const newCompletedState = !completed;
       setCompleted(newCompletedState);
-      
+
       // Update playlist videos with new completion status
       const updatedVideos = playlistVideos.map((v) =>
         v.id === id ? { ...v, completed: newCompletedState } : v
       );
       setPlaylistVideos(updatedVideos);
-      
+
       // Recalculate completed count
       const newCompletedCount = updatedVideos.filter((v) => v.completed).length;
       setCompletedCount(newCompletedCount);
-      
+
       toast.success(newCompletedState ? "Marked as completed" : "Marked as incomplete");
     } catch (error) {
       toast.error("Failed to update video status");
@@ -186,157 +187,166 @@ export default function WatchPage({
               </div>
             </div>
 
-            {/* Progress Stats */}
+            {/* Progress Stats & Toggle */}
             <div className="flex items-center gap-4 ml-4 flex-shrink-0">
-              <div className="text-right">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-foreground">
-                  {currentIndex + 1}/{playlistVideos.length} completed
+                  {completedCount}/{playlistVideos.length} completed
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {Math.round((currentIndex / playlistVideos.length) * 100)}%
+                  {playlistVideos.length > 0 ? Math.round((completedCount / playlistVideos.length) * 100) : 0}%
                 </p>
               </div>
+              {!showPlaylist && (
+                <Button variant="outline" size="sm" onClick={() => setShowPlaylist(true)}>
+                  Show Playlist
+                </Button>
+              )}
             </div>
           </div>
         </div>
       )}
 
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          {/* Video Player */}
-          <div className="mb-6">
-            <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
-              <iframe
-                width="100%"
-                height="100%"
-                src={`https://www.youtube.com/embed/${video.youtubeId}?autoplay=1`}
-                title={video.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ position: "absolute", top: 0, left: 0 }}
-              ></iframe>
-            </div>
-          </div>
-
-          {/* Video Title and Metadata */}
-          <div className="mb-6">
-            <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{video.title}</h1>
-                <p className="text-lg text-muted-foreground">{video.channel}</p>
-              </div>
-              <Button
-                onClick={handleMarkComplete}
-                variant={completed ? "default" : "outline"}
-                className={completed ? "bg-green-600 hover:bg-green-700" : ""}
-              >
-                <Check className="w-4 h-4 mr-2" />
-                {completed ? "Completed" : "Mark Complete"}
-              </Button>
-            </div>
-
-            {/* Video Stats */}
-            <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span>Duration: {String(Math.floor(video.duration / 3600)).padStart(2, "0")}:{String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:{String(video.duration % 60).padStart(2, "0")}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className={`${showPlaylist && playlistId ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300`}>
+            {/* Video Player */}
+            <div className="mb-6">
+              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&rel=0`}
+                  title={video.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ position: "absolute", top: 0, left: 0 }}
+                ></iframe>
               </div>
             </div>
+
+            {/* Video Title and Metadata */}
+            <div className="mb-6">
+              <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">{video.title}</h1>
+                  <p className="text-lg text-muted-foreground">{video.channel}</p>
+                </div>
+                <Button
+                  onClick={handleMarkComplete}
+                  variant={completed ? "default" : "outline"}
+                  className={completed ? "bg-green-600 hover:bg-green-700" : ""}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {completed ? "Completed" : "Mark Complete"}
+                </Button>
+              </div>
+
+              {/* Video Stats */}
+              <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span>Duration: {String(Math.floor(video.duration / 3600)).padStart(2, "0")}:{String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:{String(video.duration % 60).padStart(2, "0")}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <Tabs defaultValue="description" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 mb-6">
+                <TabsTrigger value="description">Description</TabsTrigger>
+                <TabsTrigger value="comments">Comments</TabsTrigger>
+                <TabsTrigger value="attachments">Attachments</TabsTrigger>
+                <TabsTrigger value="ai">AI Assistant</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="description" className="space-y-4">
+                <Card className="p-6">
+                  <h2 className="text-lg font-semibold text-foreground mb-4">About this lesson</h2>
+                  <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    {video.description}
+                  </p>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="comments" className="space-y-4">
+                <Card className="p-6 text-center text-muted-foreground py-12">
+                  <p>Comments feature coming soon</p>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="attachments" className="space-y-4">
+                <Card className="p-6 text-center text-muted-foreground py-12">
+                  <p>No attachments available</p>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="ai" className="space-y-4">
+                <Card className="p-6 text-center text-muted-foreground py-12">
+                  <p>AI Assistant coming soon</p>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
 
-          {/* Tabs */}
-          <Tabs defaultValue="description" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
-              <TabsTrigger value="description">Description</TabsTrigger>
-              <TabsTrigger value="comments">Comments</TabsTrigger>
-              <TabsTrigger value="attachments">Attachments</TabsTrigger>
-              <TabsTrigger value="ai">AI Assistant</TabsTrigger>
-            </TabsList>
+          {/* Playlist Sidebar */}
+          {playlistId && playlistVideos.length > 0 && showPlaylist && (
+            <div className="lg:col-span-1">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-foreground">
+                    Lesson {currentIndex + 1} / {playlistVideos.length}
+                  </h3>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPlaylist(false)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
 
-            <TabsContent value="description" className="space-y-4">
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-foreground mb-4">About this lesson</h2>
-                <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                  {video.description}
-                </p>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="comments" className="space-y-4">
-              <Card className="p-6 text-center text-muted-foreground py-12">
-                <p>Comments feature coming soon</p>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="attachments" className="space-y-4">
-              <Card className="p-6 text-center text-muted-foreground py-12">
-                <p>No attachments available</p>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="ai" className="space-y-4">
-              <Card className="p-6 text-center text-muted-foreground py-12">
-                <p>AI Assistant coming soon</p>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Playlist Sidebar */}
-        {playlistId && playlistVideos.length > 0 && (
-          <div className="lg:col-span-1">
-            <Card className="p-4">
-              <h3 className="font-semibold text-foreground mb-4">
-                Lesson {currentIndex + 1} / {playlistVideos.length}
-              </h3>
-
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {playlistVideos.map((v, idx) => (
-                  <Link key={v.id} href={`/app/watch/${v.id}?playlistId=${playlistId}`}>
-                    <div
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        idx === currentIndex
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {playlistVideos.map((v, idx) => (
+                    <Link key={v.id} href={`/app/watch/${v.id}?playlistId=${playlistId}`}>
+                      <div
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${idx === currentIndex
                           ? "bg-primary/20 border border-primary"
                           : "bg-card hover:bg-accent/50"
-                      }`}
-                    >
-                      <p className="text-sm font-medium line-clamp-2 text-foreground">
-                        {idx + 1}. {v.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {String(Math.floor(v.duration / 3600)).padStart(2, "0")}:{String(Math.floor((v.duration % 3600) / 60)).padStart(2, "0")}:{String(v.duration % 60).padStart(2, "0")}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                          }`}
+                      >
+                        <p className="text-sm font-medium line-clamp-2 text-foreground">
+                          {idx + 1}. {v.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {String(Math.floor(v.duration / 3600)).padStart(2, "0")}:{String(Math.floor((v.duration % 3600) / 60)).padStart(2, "0")}:{String(v.duration % 60).padStart(2, "0")}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
 
-              {/* Navigation */}
-              <div className="flex gap-2 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={handlePrev}
-                  disabled={currentIndex === 0}
-                  className="flex-1"
-                >
-                  ← Prev
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleNext}
-                  disabled={currentIndex === playlistVideos.length - 1}
-                  className="flex-1"
-                >
-                  Next →
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
+                {/* Navigation */}
+                <div className="flex gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrev}
+                    disabled={currentIndex === 0}
+                    className="flex-1"
+                  >
+                    ← Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleNext}
+                    disabled={currentIndex === playlistVideos.length - 1}
+                    className="flex-1"
+                  >
+                    Next →
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
       </div>
-      </div>
-    </div>
+    </div >
   );
 }

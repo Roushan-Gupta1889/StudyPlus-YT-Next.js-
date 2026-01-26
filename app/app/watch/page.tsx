@@ -54,10 +54,41 @@ export default function WatchPage() {
                     const data = await res.json();
                     setVideos(data);
 
-                    // Auto-select video from URL or first video
+                    // Handle video selection from URL
                     if (videoIdFromUrl) {
-                        const video = data.find((v: Video) => v.id === videoIdFromUrl);
-                        if (video) setSelectedVideo(video);
+                        const videoInLibrary = data.find((v: Video) => v.id === videoIdFromUrl);
+
+                        if (videoInLibrary) {
+                            setSelectedVideo(videoInLibrary);
+                        } else {
+                            // Video ID in URL but not in library (maybe soft-deleted or from playlist)
+                            // Try to fetch it directly
+                            try {
+                                const singleRes = await fetch(`/api/videos/${videoIdFromUrl}`);
+                                if (singleRes.ok) {
+                                    const explicitVideo = await singleRes.json();
+                                    setSelectedVideo(explicitVideo);
+
+                                    // Auto-restore to library if it exists but was hidden
+                                    await fetch("/api/videos", {
+                                        method: "POST", // POST logic handles restoration
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            youtubeId: explicitVideo.youtubeId,
+                                            title: explicitVideo.title, // These fields are ignored if exists
+                                        })
+                                    });
+
+                                    // Refresh library list to include it
+                                    const refreshedRes = await fetch("/api/videos");
+                                    if (refreshedRes.ok) {
+                                        setVideos(await refreshedRes.json());
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("Error fetching single video", e);
+                            }
+                        }
                     } else if (data.length > 0) {
                         setSelectedVideo(data[0]);
                     }
@@ -135,7 +166,7 @@ export default function WatchPage() {
 
     const seekToTimestamp = (timestamp: number) => {
         if (playerRef) {
-            playerRef.seekTo(timestamp, "seconds");
+            playerRef.currentTime = timestamp;
             setIsPlaying(true);
         }
     };
@@ -169,6 +200,30 @@ export default function WatchPage() {
         );
     }
 
+    const handleDeleteVideo = async (e: React.MouseEvent, videoId: string) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this video?")) return;
+
+        try {
+            const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
+            if (res.ok) {
+                const newVideos = videos.filter((v) => v.id !== videoId);
+                setVideos(newVideos);
+
+                // If deleted video was selected, select the first available video
+                if (selectedVideo?.id === videoId) {
+                    setSelectedVideo(newVideos.length > 0 ? newVideos[0] : null);
+                }
+                toast.success("Video deleted");
+            } else {
+                toast.error("Failed to delete video");
+            }
+        } catch (error) {
+            console.error("Error deleting video:", error);
+            toast.error("Failed to delete video");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background">
             <div className="grid lg:grid-cols-[1fr,400px] h-screen">
@@ -179,14 +234,19 @@ export default function WatchPage() {
                         {selectedVideo ? (
                             <ReactPlayer
                                 ref={setPlayerRef}
-                                url={`https://www.youtube.com/watch?v=${selectedVideo.youtubeId}`}
+                                src={`https://www.youtube.com/watch?v=${selectedVideo.youtubeId}`}
                                 playing={isPlaying}
                                 controls
                                 width="100%"
                                 height="100%"
-                                onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds)}
+                                onTimeUpdate={(e: any) => setCurrentTime(e.currentTarget.currentTime)}
                                 onPlay={() => setIsPlaying(true)}
                                 onPause={() => setIsPlaying(false)}
+                                config={{
+                                    youtube: {
+                                        rel: 0
+                                    }
+                                }}
                             />
                         ) : (
                             <div className="absolute inset-0 flex items-center justify-center text-white">
@@ -208,10 +268,10 @@ export default function WatchPage() {
                         <h2 className="font-semibold text-foreground mb-4">Your Video Library</h2>
                         <div className="space-y-3">
                             {videos.map((video) => (
-                                <button
+                                <div
                                     key={video.id}
                                     onClick={() => setSelectedVideo(video)}
-                                    className={`w-full flex gap-3 p-3 rounded-lg border transition-all text-left ${selectedVideo?.id === video.id
+                                    className={`w-full flex gap-3 p-3 rounded-lg border transition-all cursor-pointer group relative ${selectedVideo?.id === video.id
                                         ? "border-primary bg-primary/5"
                                         : "border-border hover:border-primary/50"
                                         }`}
@@ -226,7 +286,7 @@ export default function WatchPage() {
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-medium text-foreground text-sm line-clamp-2 mb-1">{video.title}</h3>
+                                        <h3 className="font-medium text-foreground text-sm line-clamp-2 mb-1 pr-6">{video.title}</h3>
                                         <p className="text-xs text-muted-foreground">{video.channel}</p>
                                         {video.progress > 0 && (
                                             <div className="mt-2">
@@ -236,7 +296,15 @@ export default function WatchPage() {
                                             </div>
                                         )}
                                     </div>
-                                </button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6 text-muted-foreground hover:text-destructive"
+                                        onClick={(e) => handleDeleteVideo(e, video.id)}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
                             ))}
                         </div>
                     </div>

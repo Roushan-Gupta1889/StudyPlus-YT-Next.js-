@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
         const videos = await prisma.video.findMany({
             where: {
                 userId: session.user.id,
+                inLibrary: true,
             },
             include: {
                 notes: {
@@ -62,6 +63,14 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingVideo) {
+            // Restore to library if it was "deleted"
+            if (!existingVideo.inLibrary) {
+                const updatedVideo = await prisma.video.update({
+                    where: { id: existingVideo.id },
+                    data: { inLibrary: true }
+                });
+                return NextResponse.json(updatedVideo);
+            }
             return NextResponse.json(existingVideo);
         }
 
@@ -75,6 +84,7 @@ export async function POST(request: NextRequest) {
                 thumbnail,
                 duration,
                 channel,
+                inLibrary: true,
             },
         });
 

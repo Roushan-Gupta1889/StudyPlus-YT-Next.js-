@@ -65,15 +65,12 @@ export default function DashboardPage() {
                 // Fetch videos
                 const videosRes = await fetch("/api/videos");
                 if (videosRes.ok) {
-                    const videosData = await fetch("/api/videos");
-                    if (videosRes.ok) {
-                        const videosData = await videosRes.json();
-                        // Filter videos with progress > 0 and < 100
-                        const inProgress = videosData.filter(
-                            (v: Video) => v.progress > 0 && v.progress < 100
-                        );
-                        setVideos(inProgress.slice(0, 2)); // Top 2
-                    }
+                    const videosData = await videosRes.json();
+                    // Filter videos with progress > 0 and < 100
+                    const inProgress = videosData.filter(
+                        (v: Video) => v.progress > 0 && v.progress < 100
+                    );
+                    setVideos(inProgress.slice(0, 4));
                 }
 
                 // Fetch playlists
