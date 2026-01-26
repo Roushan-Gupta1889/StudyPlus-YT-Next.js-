@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  isIITMUser    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  videos        Video[]
+  notes         Note[]
+  playlists     Playlist[]
+  watchHistory  WatchHistory[]
+  analytics     UserAnalytics?
+
+  @@map("users")
+}
+
+model Video {
+  id          String   @id @default(cuid())
+  userId      String
+  youtubeId   String
+  title       String
+  description String?
+  thumbnail   String?
+  duration    Int? // in seconds
+  channel     String?
+  progress    Int      @default(0) // percentage 0-100
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes           Note[]
+  watchHistory    WatchHistory[]
+  playlistVideos  PlaylistVideo[]
+
+  @@unique([userId, youtubeId])
+  @@index([userId])
+  @@map("videos")
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  userId      String
+  videoId     String
+  content     String   @db.Text
+  timestamp   Int // in seconds
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@map("notes")
+}
+
+model Playlist {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videos PlaylistVideo[]
+
+  @@index([userId])
+  @@map("playlists")
+}
+
+model PlaylistVideo {
+  id         String   @id @default(cuid())
+  playlistId String
+  videoId    String
+  position   Int      @default(0)
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, videoId])
+  @@index([playlistId])
+  @@map("playlist_videos")
+}
+
+model WatchHistory {
+  id         String   @id @default(cuid())
+  userId     String
+  videoId    String
+  watchedAt  DateTime @default(now())
+  watchTime  Int // watch duration in seconds
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@map("watch_history")
+}
+
+model UserAnalytics {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totalWatchTime  Int      @default(0) // in seconds
+  videosCompleted Int      @default(0)
+  currentStreak   Int      @default(0) // in days
+  longestStreak   Int      @default(0)
+  lastWatchDate   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_analytics")
+}
+
+model VideoSearch {
+  id          String   @id @default(cuid())
+  query       String   @unique
+  results     Json     // Store search results as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime // Cache expiration (24 hours)
+
+  @@index([query])
+  @@index([expiresAt])
+  @@map("video_searches")
+}
+

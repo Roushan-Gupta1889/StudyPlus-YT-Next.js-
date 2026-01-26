@@ -1,0 +1,13 @@
+// Add VideoSearch model to cache search results in database
+model VideoSearch {
+  id          String   @id @default(cuid())
+  query       String   @unique
+  results     Json     // Store search results as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  expiresAt   DateTime // Cache expiration
+
+  @@index([query])
+  @@index([expiresAt])
+  @@map("video_searches")
+}
