@@ -107,41 +107,65 @@ export default function VideosPage() {
           </p>
         </div>
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Video
+        <div className="flex items-center gap-2">
+          {videos.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!confirm("Remove all videos from your library?")) return;
+                try {
+                  const res = await fetch("/api/videos?clearAll=true", { method: "DELETE" });
+                  if (res.ok) {
+                    setVideos([]);
+                    toast.success("Library cleared");
+                  } else {
+                    toast.error("Failed to clear library");
+                  }
+                } catch (e) {
+                  toast.error("Failed to clear library");
+                }
+              }}
+            >
+              Clear All
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add YouTube Video</DialogTitle>
-            </DialogHeader>
+          )}
 
-            <form onSubmit={handleAddVideo} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">
-                  YouTube URL or Video ID
-                </label>
-                <Input
-                  placeholder="https://youtube.com/watch?v=... or paste video ID"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  disabled={submitting}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Paste the full YouTube URL or just the video ID
-                </p>
-              </div>
-
-              <Button type="submit" disabled={submitting} className="w-full">
-                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {submitting ? "Adding..." : "Add Video"}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Video
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add YouTube Video</DialogTitle>
+              </DialogHeader>
+
+              <form onSubmit={handleAddVideo} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 block">
+                    YouTube URL or Video ID
+                  </label>
+                  <Input
+                    placeholder="https://youtube.com/watch?v=... or paste video ID"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    disabled={submitting}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Paste the full YouTube URL or just the video ID
+                  </p>
+                </div>
+
+                <Button type="submit" disabled={submitting} className="w-full">
+                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {submitting ? "Adding..." : "Add Video"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Loading State */}
@@ -169,7 +193,7 @@ export default function VideosPage() {
             <Link key={video.id} href={`/app/watch/${video.id}`}>
               <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
                 {/* Thumbnail Section */}
-                <div 
+                <div
                   className="flex-1 relative group bg-muted"
                   style={{
                     backgroundImage: `url(${video.thumbnail})`,

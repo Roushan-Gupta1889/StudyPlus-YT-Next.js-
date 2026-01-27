@@ -94,3 +94,36 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
 }
+
+// DELETE /api/videos - Clear library
+export async function DELETE(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const clearAll = searchParams.get("clearAll");
+
+        if (clearAll === "true") {
+            // Remove all videos from library (soft delete)
+            await prisma.video.updateMany({
+                where: {
+                    userId: session.user.id,
+                    inLibrary: true,
+                },
+                data: {
+                    inLibrary: false,
+                },
+            });
+            return NextResponse.json({ message: "Library cleared" });
+        }
+
+        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+    } catch (error) {
+        console.error("[VIDEOS_DELETE]", error);
+        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    }
+}

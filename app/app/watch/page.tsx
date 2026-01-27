@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -43,6 +43,66 @@ export default function WatchPage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [playerRef, setPlayerRef] = useState<any>(null);
+    const [watchSession, setWatchSession] = useState({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
+
+    // Sync watch history every 30 seconds
+    const VIDEO_SYNC_INTERVAL = 30; // seconds
+
+    const syncWatchHistory = async (seconds: number) => {
+        if (seconds < 5 || !selectedVideo) return; // Ignore very short durations
+
+        try {
+            await fetch("/api/history", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    videoId: selectedVideo.id,
+                    watchTime: Math.round(seconds),
+                }),
+            });
+        } catch (error) {
+            console.error("Failed to sync history", error);
+        }
+    };
+
+    // Handle progress updates
+    const handleProgress = () => {
+        if (!isPlaying) return;
+
+        setWatchSession(prev => {
+            const now = Date.now();
+            // Assuming this is called roughly once per second
+            const newAccumulated = prev.accumulatedTime + 1;
+
+            // If accumulated > interval, sync and reset
+            if (newAccumulated >= VIDEO_SYNC_INTERVAL) {
+                syncWatchHistory(newAccumulated);
+                return { accumulatedTime: 0, lastSync: now, initialSyncDone: prev.initialSyncDone };
+            }
+
+            // Initial sync for "instant" tracking (e.g. after 5 seconds)
+            if (!prev.initialSyncDone && newAccumulated >= 5) {
+                syncWatchHistory(newAccumulated);
+                return { accumulatedTime: 0, lastSync: now, initialSyncDone: true };
+            }
+
+            return { ...prev, accumulatedTime: newAccumulated };
+        });
+    };
+
+    // Sync remaining time when switching videos or unmounting
+    useEffect(() => {
+        return () => {
+            if (watchSession.accumulatedTime > 0) {
+                syncWatchHistory(watchSession.accumulatedTime);
+            }
+        };
+    }, [watchSession.accumulatedTime, selectedVideo]);
+
+    useEffect(() => {
+        // Reset session when video changes
+        setWatchSession({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
+    }, [selectedVideo]);
 
     // Fetch user's videos
     useEffect(() => {
@@ -242,6 +302,15 @@ export default function WatchPage() {
                                 onTimeUpdate={(e: any) => setCurrentTime(e.currentTarget.currentTime)}
                                 onPlay={() => setIsPlaying(true)}
                                 onPause={() => setIsPlaying(false)}
+                                onProgress={(state) => {
+                                    // Track watch time (approximated by progress interval)
+                                    // ReactPlayer fires onProgress roughly every second
+                                    // We'll trust the internal timer implicitly for simplicity, 
+                                    // or better, just accumulate 1s on every tick if playing?
+                                    // Actually, let's use a simpler approach: 
+                                    // Just sync valid watch time.
+                                    handleProgress();
+                                }}
                                 config={{
                                     youtube: {
                                         rel: 0
@@ -265,7 +334,31 @@ export default function WatchPage() {
 
                     {/* Video Library List */}
                     <div className="flex-1 overflow-y-auto p-4">
-                        <h2 className="font-semibold text-foreground mb-4">Your Video Library</h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="font-semibold text-foreground">Your Video Library</h2>
+                            {videos.length > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-muted-foreground hover:text-destructive text-xs h-7 px-2"
+                                    onClick={async (e) => {
+                                        if (!confirm("Remove all videos from your library?")) return;
+                                        try {
+                                            const res = await fetch("/api/videos?clearAll=true", { method: "DELETE" });
+                                            if (res.ok) {
+                                                setVideos([]);
+                                                setSelectedVideo(null);
+                                                toast.success("Library cleared");
+                                            }
+                                        } catch (e) {
+                                            toast.error("Failed to clear library");
+                                        }
+                                    }}
+                                >
+                                    Clear All
+                                </Button>
+                            )}
+                        </div>
                         <div className="space-y-3">
                             {videos.map((video) => (
                                 <div

@@ -70,6 +70,41 @@ export default function HistoryPage() {
         }
     }, [session]);
 
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            const res = await fetch(`/api/history?id=${id}`, { method: "DELETE" });
+            if (res.ok) {
+                setHistory(history.filter(item => item.id !== id));
+                toast.success("Item deleted from history");
+            } else {
+                toast.error("Failed to delete item");
+            }
+        } catch (error) {
+            console.error("Error deleting history item:", error);
+            toast.error("Failed to delete item");
+        }
+    };
+
+    const handleClearAll = async () => {
+        if (!confirm("Are you sure you want to clear your entire watch history?")) return;
+
+        try {
+            const res = await fetch("/api/history?clearAll=true", { method: "DELETE" });
+            if (res.ok) {
+                setHistory([]);
+                toast.success("Watch history cleared");
+            } else {
+                toast.error("Failed to clear history");
+            }
+        } catch (error) {
+            console.error("Error clearing history:", error);
+            toast.error("Failed to clear history");
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -81,9 +116,16 @@ export default function HistoryPage() {
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground mb-1">Watch History</h1>
-                <p className="text-muted-foreground">Track all the videos you've watched</p>
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground mb-1">Watch History</h1>
+                    <p className="text-muted-foreground">Track all the videos you've watched</p>
+                </div>
+                {history.length > 0 && (
+                    <Button variant="destructive" onClick={handleClearAll}>
+                        Clear All History
+                    </Button>
+                )}
             </div>
 
             {/* Empty State */}
@@ -104,7 +146,7 @@ export default function HistoryPage() {
                 /* History List */
                 <div className="space-y-3">
                     {history.map((item) => (
-                        <Card key={item.id} className="overflow-hidden hover:shadow-card transition-all">
+                        <Card key={item.id} className="overflow-hidden hover:shadow-card transition-all group relative">
                             <Link href={`/app/watch?v=${item.video.id}`} className="flex flex-col sm:flex-row gap-4 p-4">
                                 {/* Thumbnail */}
                                 <div className="w-full sm:w-48 aspect-video bg-muted rounded-lg relative flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -155,6 +197,16 @@ export default function HistoryPage() {
                                     </div>
                                 </div>
                             </Link>
+
+                            {/* Delete Button */}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => handleDelete(e, item.id)}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                            </Button>
                         </Card>
                     ))}
                 </div>

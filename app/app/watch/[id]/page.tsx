@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
 import { ArrowLeft, Loader2, Check, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
+
+// Dynamic import to avoid SSR issues with ReactPlayer
+const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 
 interface Video {
   id: string;
@@ -44,11 +48,37 @@ export default function WatchPage({
   const [completedCount, setCompletedCount] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(true);
 
+  // Player state
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [playerRef, setPlayerRef] = useState<any>(null);
+  const [watchSession, setWatchSession] = useState({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
+  const watchSessionRef = useRef(watchSession);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    watchSessionRef.current = watchSession;
+  }, [watchSession]);
+
   useEffect(() => {
     setMounted(true);
     fetchVideo();
     checkPlaylistContext();
   }, [id]);
+
+  // Reset session when video changes
+  useEffect(() => {
+    setWatchSession({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
+    setIsPlaying(true);
+  }, [id]);
+
+  // Sync remaining time when switching videos or unmounting
+  useEffect(() => {
+    return () => {
+      if (watchSessionRef.current.accumulatedTime > 0) {
+        syncWatchHistory(watchSessionRef.current.accumulatedTime);
+      }
+    };
+  }, [video]); // Only run on unmount or video change
 
   const checkPlaylistContext = async () => {
     // Try to get playlist info from session/url params if available
@@ -141,6 +171,53 @@ export default function WatchPage({
     }
   };
 
+  // Sync watch history every 30 seconds
+  const VIDEO_SYNC_INTERVAL = 30; // seconds
+
+  const syncWatchHistory = async (seconds: number) => {
+    if (seconds < 5 || !video) return; // Ignore very short durations
+
+    try {
+      await fetch("/api/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoId: video.id,
+          watchTime: Math.round(seconds),
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to sync history", error);
+    }
+  };
+
+  // Handle progress updates
+  const handleProgress = () => {
+    if (!isPlaying) return;
+
+    setWatchSession(prev => {
+      const now = Date.now();
+      // Assuming this is called roughly once per second
+      const newAccumulated = prev.accumulatedTime + 1;
+
+      // If accumulated > interval, sync and reset
+      if (newAccumulated >= VIDEO_SYNC_INTERVAL) {
+        syncWatchHistory(newAccumulated);
+        return { accumulatedTime: 0, lastSync: now, initialSyncDone: prev.initialSyncDone };
+      }
+
+      // Initial sync for "instant" tracking (e.g. after 5 seconds)
+      if (!prev.initialSyncDone && newAccumulated >= 5) {
+        syncWatchHistory(newAccumulated);
+        return { accumulatedTime: 0, lastSync: now, initialSyncDone: true };
+      }
+
+      return { ...prev, accumulatedTime: newAccumulated };
+
+      return { ...prev, accumulatedTime: newAccumulated };
+    });
+  };
+
   if (!mounted || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -214,16 +291,26 @@ export default function WatchPage({
             {/* Video Player */}
             <div className="mb-6">
               <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
-                <iframe
+                <ReactPlayer
+                  ref={setPlayerRef}
+                  src={`https://www.youtube.com/watch?v=${video.youtubeId}`}
+                  playing={isPlaying}
+                  controls
                   width="100%"
                   height="100%"
-                  src={`https://www.youtube.com/embed/${video.youtubeId}?autoplay=1&rel=0`}
-                  title={video.title}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  style={{ position: "absolute", top: 0, left: 0 }}
-                ></iframe>
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onProgress={() => handleProgress()}
+                  onEnded={() => {
+                    // Mark as complete when video ends
+                    if (!completed) handleMarkComplete();
+                  }}
+                  config={{
+                    youtube: {
+                      rel: 0
+                    }
+                  }}
+                />
               </div>
             </div>
 
