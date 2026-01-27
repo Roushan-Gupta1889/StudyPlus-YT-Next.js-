@@ -81,13 +81,38 @@ export async function getVideoDetails(videoId: string): Promise<YouTubeVideo | n
 }
 
 // Search YouTube videos
-export async function searchVideos(query: string, maxResults: number = 10): Promise<YouTubeVideo[]> {
+export interface YouTubeChannel {
+    id: string;
+    title: string;
+    description: string;
+    thumbnail: string;
+    subscriberCount?: string;
+    videoCount?: string;
+}
+
+export interface YouTubePlaylist {
+    id: string;
+    title: string;
+    description: string;
+    thumbnail: string;
+    itemCount: number;
+    channel: string;
+}
+
+export type SearchType = "video" | "channel" | "playlist";
+
+// Search YouTube
+export async function searchYouTube(
+    query: string,
+    type: SearchType = "video",
+    maxResults: number = 10
+): Promise<(YouTubeVideo | YouTubeChannel | YouTubePlaylist)[]> {
     try {
         const response = await axios.get(`${YOUTUBE_API_URL}/search`, {
             params: {
                 part: "snippet",
                 q: query,
-                type: "video",
+                type,
                 maxResults,
                 key: YOUTUBE_API_KEY,
             },
@@ -97,10 +122,98 @@ export async function searchVideos(query: string, maxResults: number = 10): Prom
             return [];
         }
 
-        // Get full details for each video (including duration)
-        const videoIds = response.data.items.map((item: any) => item.id.videoId).join(",");
+        const items = response.data.items;
 
-        const detailsResponse = await axios.get(`${YOUTUBE_API_URL}/videos`, {
+        if (type === "video") {
+            // Get full details for each video (including duration)
+            const videoIds = items.map((item: any) => item.id.videoId).join(",");
+
+            const detailsResponse = await axios.get(`${YOUTUBE_API_URL}/videos`, {
+                params: {
+                    part: "snippet,contentDetails",
+                    id: videoIds,
+                    key: YOUTUBE_API_KEY,
+                },
+            });
+
+            return detailsResponse.data.items.map((item: any) => ({
+                id: item.id,
+                title: item.snippet.title,
+                description: item.snippet.description,
+                thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
+                duration: parseDuration(item.contentDetails.duration),
+                channel: item.snippet.channelTitle,
+            }));
+        } else if (type === "channel") {
+            // Get channel details (subscriber count)
+            const channelIds = items.map((item: any) => item.id.channelId).join(",");
+
+            const detailsResponse = await axios.get(`${YOUTUBE_API_URL}/channels`, {
+                params: {
+                    part: "snippet,statistics",
+                    id: channelIds,
+                    key: YOUTUBE_API_KEY,
+                },
+            });
+
+            return detailsResponse.data.items.map((item: any) => ({
+                id: item.id,
+                title: item.snippet.title,
+                description: item.snippet.description,
+                thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
+                subscriberCount: item.statistics.subscriberCount,
+                videoCount: item.statistics.videoCount,
+            }));
+        } else if (type === "playlist") {
+            // Get playlist details (item count)
+            const playlistIds = items.map((item: any) => item.id.playlistId).join(",");
+
+            const detailsResponse = await axios.get(`${YOUTUBE_API_URL}/playlists`, {
+                params: {
+                    part: "snippet,contentDetails",
+                    id: playlistIds,
+                    key: YOUTUBE_API_KEY,
+                },
+            });
+
+            return detailsResponse.data.items.map((item: any) => ({
+                id: item.id,
+                title: item.snippet.title,
+                description: item.snippet.description,
+                thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
+                itemCount: item.contentDetails.itemCount,
+                channel: item.snippet.channelTitle,
+            }));
+        }
+
+        return [];
+    } catch (error) {
+        console.error("[YOUTUBE_SEARCH]", error);
+        return [];
+    }
+}
+
+// Get videos from a playlist
+export async function getPlaylistVideos(playlistId: string, maxResults: number = 50): Promise<YouTubeVideo[]> {
+    try {
+        // 1. Get playlist items (video IDs)
+        const playlistResponse = await axios.get(`${YOUTUBE_API_URL}/playlistItems`, {
+            params: {
+                part: "snippet,contentDetails",
+                playlistId: playlistId,
+                maxResults: maxResults, // Max allowed by API per page is 50
+                key: YOUTUBE_API_KEY,
+            },
+        });
+
+        if (!playlistResponse.data.items || playlistResponse.data.items.length === 0) {
+            return [];
+        }
+
+        const videoIds = playlistResponse.data.items.map((item: any) => item.contentDetails.videoId).join(",");
+
+        // 2. Get video details (duration is needed)
+        const videosResponse = await axios.get(`${YOUTUBE_API_URL}/videos`, {
             params: {
                 part: "snippet,contentDetails",
                 id: videoIds,
@@ -108,7 +221,7 @@ export async function searchVideos(query: string, maxResults: number = 10): Prom
             },
         });
 
-        return detailsResponse.data.items.map((item: any) => ({
+        return videosResponse.data.items.map((item: any) => ({
             id: item.id,
             title: item.snippet.title,
             description: item.snippet.description,
@@ -117,7 +230,7 @@ export async function searchVideos(query: string, maxResults: number = 10): Prom
             channel: item.snippet.channelTitle,
         }));
     } catch (error) {
-        console.error("[YOUTUBE_SEARCH]", error);
+        console.error("[YOUTUBE_GET_PLAYLIST_VIDEOS]", error);
         return [];
     }
 }

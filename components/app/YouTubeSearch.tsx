@@ -23,19 +23,26 @@ interface YouTubeSearchProps {
 export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
+  const [activeTab, setActiveTab] = useState<"video" | "playlist">("video");
+  const [videos, setVideos] = useState<any[]>([]);
   const [savedItems, setSavedItems] = useState<string[]>([]);
+  const [importingPlaylistId, setImportingPlaylistId] = useState<string | null>(null);
 
   // Debounce search query (500ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleSearch = useCallback(async (query: string) => {
+  const handleSearch = useCallback(async (query: string, type: string) => {
     if (!query.trim()) {
       setVideos([]);
       return;
@@ -43,7 +50,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
 
     try {
       setIsSearching(true);
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}&type=${type}`);
 
       if (res.status === 429) {
         toast.error("Too many requests. Please slow down.");
@@ -69,14 +76,14 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
     }
   }, []);
 
-  // Auto-search when debounced query changes
+  // Auto-search when debounced query changes or tab changes
   useEffect(() => {
     if (debouncedSearchQuery) {
-      handleSearch(debouncedSearchQuery);
+      handleSearch(debouncedSearchQuery, activeTab);
     }
-  }, [debouncedSearchQuery, handleSearch]);
+  }, [debouncedSearchQuery, activeTab, handleSearch]);
 
-  const handleSaveVideo = async (video: YouTubeVideo) => {
+  const handleSaveVideo = async (video: any) => {
     try {
       const res = await fetch("/api/videos", {
         method: "POST",
@@ -103,12 +110,61 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
     }
   };
 
+  // Import playlist
+  const handleImportPlaylist = async (playlist: any) => {
+    try {
+      setImportingPlaylistId(playlist.id);
+      const res = await fetch("/api/playlists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: playlist.title,
+          description: playlist.description,
+          youtubeId: playlist.id,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to import playlist");
+      }
+
+      toast.success("Playlist imported successfully!");
+
+      // Close search and redirect (optional, or just show success)
+      if (onClose) onClose();
+      window.location.href = "/app/playlists";
+
+    } catch (error) {
+      console.error("Import playlist error:", error);
+      toast.error("Failed to import playlist");
+    } finally {
+      setImportingPlaylistId(null);
+    }
+  }
+
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-foreground">Search YouTube</h3>
+          <div className="flex items-center gap-4">
+            <h3 className="font-semibold text-foreground">Search YouTube</h3>
+            {/* Tabs */}
+            <div className="flex bg-muted/50 rounded-lg p-1">
+              {(["video", "playlist"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === tab
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}s
+                </button>
+              ))}
+            </div>
+          </div>
           {onClose && (
             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
               <X className="w-4 h-4" />
@@ -118,7 +174,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search videos... (auto-searches as you type)"
+            placeholder={`Search ${activeTab}s...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -138,7 +194,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
           <div className="p-8 text-center">
             <Search className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              Start typing to search YouTube videos
+              Start typing to search YouTube {activeTab}s
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Results are cached for 24 hours to save API quota
@@ -151,14 +207,15 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {videos.map((video) => (
-              <div key={video.id} className="p-4 hover:bg-accent/50 transition-colors">
+            {videos.map((item) => (
+              <div key={item.id} className="p-4 hover:bg-accent/50 transition-colors">
                 <div className="flex gap-3">
-                  <div className="w-40 h-24 bg-muted rounded-lg flex-shrink-0 overflow-hidden relative">
-                    {video.thumbnail ? (
+                  {/* Thumbnail / Avatar */}
+                  <div className={`flex-shrink-0 relative overflow-hidden bg-muted w-40 h-24 rounded-lg`}>
+                    {item.thumbnail ? (
                       <img
-                        src={video.thumbnail}
-                        alt={video.title}
+                        src={item.thumbnail}
+                        alt={item.title}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -166,36 +223,75 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
                         <Play className="w-6 h-6 text-muted-foreground/50" />
                       </div>
                     )}
-                    <span className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 rounded">
-                      {formatDuration(video.duration)}
-                    </span>
+                    {activeTab === 'video' && (
+                      <span className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 rounded">
+                        {formatDuration(item.duration)}
+                      </span>
+                    )}
+                    {activeTab === 'playlist' && (
+                      <span className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 rounded">
+                        {item.itemCount} videos
+                      </span>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
+
+                  {/* Details */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <h4 className="font-medium text-foreground text-sm line-clamp-2 mb-1">
-                      {video.title}
+                      {item.title}
                     </h4>
-                    <p className="text-xs text-muted-foreground mb-1">{video.channel}</p>
+                    {activeTab === 'video' && <p className="text-xs text-muted-foreground mb-1">{item.channel}</p>}
+                    {activeTab === 'playlist' && (
+                      <p className="text-xs text-muted-foreground">
+                        by {item.channel}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex flex-col gap-2 flex-shrink-0">
-                    <Button
-                      variant={savedItems.includes(video.id) ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => handleSaveVideo(video)}
-                      disabled={savedItems.includes(video.id)}
-                      className="gap-1.5"
-                    >
-                      {savedItems.includes(video.id) ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          Saved
-                        </>
-                      ) : (
-                        <>
-                          <BookmarkPlus className="w-3.5 h-3.5" />
-                          Save
-                        </>
-                      )}
-                    </Button>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
+                    {activeTab === 'video' && (
+                      <Button
+                        variant={savedItems.includes(item.id) ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => handleSaveVideo(item)}
+                        disabled={savedItems.includes(item.id)}
+                        className="gap-1.5"
+                      >
+                        {savedItems.includes(item.id) ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            Saved
+                          </>
+                        ) : (
+                          <>
+                            <BookmarkPlus className="w-3.5 h-3.5" />
+                            Save
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {activeTab === 'playlist' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleImportPlaylist(item)}
+                        disabled={importingPlaylistId === item.id}
+                        className="gap-1.5"
+                      >
+                        {importingPlaylistId === item.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Importing...
+                          </>
+                        ) : (
+                          <>
+                            <BookmarkPlus className="w-3.5 h-3.5" />
+                            Import
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>

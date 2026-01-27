@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchVideos } from "@/lib/youtube";
+import { searchYouTube, SearchType } from "@/lib/youtube";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -12,11 +12,13 @@ const limiter = rateLimit({
     uniqueTokenPerInterval: 500, // Max 500 users per interval
 });
 
-// GET /api/youtube/search?q=query
+// GET /api/youtube/search?q=query&type=video|channel|playlist
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const query = searchParams.get("q");
+        const type = (searchParams.get("type") as SearchType) || "video";
+
 
         if (!query) {
             return NextResponse.json({ error: "Query is required" }, { status: 400 });
@@ -35,28 +37,39 @@ export async function GET(request: NextRequest) {
 
         // Check database cache first
         const cachedSearch = await prisma.videoSearch.findUnique({
-            where: { query: query.toLowerCase().trim() },
+            where: {
+                query_type: {
+                    query: query.toLowerCase().trim(),
+                    type: type,
+                }
+            },
         });
 
         const now = new Date();
 
         // Return cached results if still valid
         if (cachedSearch && cachedSearch.expiresAt > now) {
-            console.log("[YOUTUBE_SEARCH] Cache hit for:", query);
+            console.log(`[YOUTUBE_SEARCH] Cache hit for: ${query} (${type})`);
             return NextResponse.json(cachedSearch.results);
         }
 
         // Cache miss or expired - fetch from YouTube API
-        console.log("[YOUTUBE_SEARCH] Cache miss, fetching from YouTube:", query);
-        const videos = await searchVideos(query, 10);
+        console.log(`[YOUTUBE_SEARCH] Cache miss, fetching from YouTube: ${query} (${type})`);
+        const videos = await searchYouTube(query, type, 10);
 
         // Store in database cache
         const expiresAt = new Date(now.getTime() + CACHE_DURATION_MS);
 
         await prisma.videoSearch.upsert({
-            where: { query: query.toLowerCase().trim() },
+            where: {
+                query_type: {
+                    query: query.toLowerCase().trim(),
+                    type: type,
+                }
+            },
             create: {
                 query: query.toLowerCase().trim(),
+                type: type,
                 results: videos as any,
                 expiresAt,
             },

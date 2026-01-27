@@ -135,12 +135,14 @@ model UserAnalytics {
 
 model VideoSearch {
   id          String   @id @default(cuid())
-  query       String   @unique
+  query       String
+  type        String   @default("video") // video, channel, playlist
   results     Json     // Store search results as JSON
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   expiresAt   DateTime // Cache expiration (24 hours)
 
+  @@unique([query, type])
   @@index([query])
   @@index([expiresAt])
   @@map("video_searches")

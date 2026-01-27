@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
             if (!acc[day]) {
                 acc[day] = { date: day, watchTime: 0, count: 0 };
             }
-            acc[day].watchTime += entry.duration;
+            acc[day].watchTime += entry.watchTime;
             acc[day].count += 1;
             return acc;
         }, {});

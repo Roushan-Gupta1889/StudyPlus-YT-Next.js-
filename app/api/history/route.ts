@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
                 video: true,
             },
             orderBy: {
-                createdAt: "desc",
+                watchedAt: "desc",
             },
             take: 50, // Limit to last 50 items
         });
