@@ -35,14 +35,38 @@ export function extractVideoId(url: string): string | null {
     return null;
 }
 
+// Extract playlist ID from YouTube URL
+export function extractPlaylistId(url: string): string | null {
+    const patterns = [
+        /[?&]list=([^&\n?#]+)/,  // ?list=PLxxx or &list=PLxxx
+        /youtube\.com\/playlist\?list=([^&\n?#]+)/,
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+
+    // If it's already just a playlist ID (starts with PL, UU, LL, FL, or RD)
+    if (/^(PL|UU|LL|FL|RD)[a-zA-Z0-9_-]+$/.test(url)) {
+        return url;
+    }
+
+    return null;
+}
+
+
 // Convert ISO 8601 duration to seconds
 function parseDuration(duration: string): number {
     const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
     if (!match) return 0;
 
-    const hours = parseInt(match[1]) || 0;
-    const minutes = parseInt(match[2]) || 0;
-    const seconds = parseInt(match[3]) || 0;
+    // Extract numbers from matched groups (e.g., "2H" -> 2)
+    const hours = match[1] ? parseInt(match[1].replace('H', '')) : 0;
+    const minutes = match[2] ? parseInt(match[2].replace('M', '')) : 0;
+    const seconds = match[3] ? parseInt(match[3].replace('S', '')) : 0;
 
     return hours * 3600 + minutes * 60 + seconds;
 }

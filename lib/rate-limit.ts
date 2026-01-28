@@ -21,7 +21,7 @@ export function rateLimit(options: RateLimitOptions) {
                 tokenCount[0] += 1;
 
                 const currentUsage = tokenCount[0];
-                const isRateLimited = currentUsage >= limit;
+                const isRateLimited = currentUsage > limit; // Fixed: Should be > not >=
 
                 return isRateLimited ? reject() : resolve();
             }),

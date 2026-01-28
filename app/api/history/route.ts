@@ -42,10 +42,20 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { videoId, watchTime } = body;
+        let { videoId, watchTime } = body;
 
+        // Validate watch time
         if (!videoId || watchTime === undefined) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        if (watchTime <= 0) {
+            return NextResponse.json({ error: "Watch time must be positive" }, { status: 400 });
+        }
+
+        // Cap watch time to reasonable maximum (12 hours per sync)
+        if (watchTime > 3600 * 12) {
+            watchTime = 3600 * 12;
         }
 
         // Verify video exists and belongs to user
@@ -58,6 +68,26 @@ export async function POST(request: NextRequest) {
         if (!video || video.userId !== session.user.id) {
             return NextResponse.json({ error: "Video not found" }, { status: 404 });
         }
+
+        // Calculate total watch time for this video
+        const existingHistory = await prisma.watchHistory.findMany({
+            where: {
+                userId: session.user.id,
+                videoId: videoId,
+            },
+        });
+
+        const totalWatchTime = existingHistory.reduce((sum, entry) => sum + entry.watchTime, 0) + watchTime;
+
+        // Calculate progress percentage (0-100)
+        let progress = 0;
+        if (video.duration && video.duration > 0) {
+            progress = Math.min(100, Math.round((totalWatchTime / video.duration) * 100));
+        }
+
+        // Determine if video is completed (95% threshold)
+        const isCompleted = progress >= 95;
+        const wasCompleted = video.completed;
 
         // Check if there's a recent history entry (e.g., within last 1 hour)
         const recentEntry = await prisma.watchHistory.findFirst({
@@ -73,54 +103,76 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        let historyEntry;
+        // Use transaction to ensure data consistency
+        const result = await prisma.$transaction(async (tx) => {
+            let historyEntry;
 
-        if (recentEntry) {
-            // Update existing entry
-            historyEntry = await prisma.watchHistory.update({
+            if (recentEntry) {
+                // Update existing entry
+                historyEntry = await tx.watchHistory.update({
+                    where: {
+                        id: recentEntry.id,
+                    },
+                    data: {
+                        watchTime: {
+                            increment: watchTime,
+                        },
+                        watchedAt: new Date(),
+                    },
+                });
+            } else {
+                // Create new watch history entry
+                historyEntry = await tx.watchHistory.create({
+                    data: {
+                        userId: session.user.id,
+                        videoId,
+                        watchTime,
+                    },
+                });
+            }
+
+            // Update video progress and completion status
+            await tx.video.update({
                 where: {
-                    id: recentEntry.id,
+                    id: videoId,
                 },
                 data: {
-                    watchTime: {
+                    progress,
+                    completed: isCompleted,
+                    updatedAt: new Date(),
+                },
+            });
+
+            // Update user analytics
+            const videosCompletedIncrement = !wasCompleted && isCompleted ? 1 : 0;
+
+            await tx.userAnalytics.upsert({
+                where: {
+                    userId: session.user.id,
+                },
+                create: {
+                    userId: session.user.id,
+                    totalWatchTime: watchTime,
+                    videosCompleted: videosCompletedIncrement,
+                    lastWatchDate: new Date(),
+                    currentStreak: 1,
+                    longestStreak: 1,
+                },
+                update: {
+                    totalWatchTime: {
                         increment: watchTime,
                     },
-                    watchedAt: new Date(),
+                    videosCompleted: {
+                        increment: videosCompletedIncrement,
+                    },
+                    lastWatchDate: new Date(),
                 },
             });
-        } else {
-            // Create new watch history entry
-            historyEntry = await prisma.watchHistory.create({
-                data: {
-                    userId: session.user.id,
-                    videoId,
-                    watchTime,
-                },
-            });
-        }
 
-        // Update user analytics
-        const analytics = await prisma.userAnalytics.upsert({
-            where: {
-                userId: session.user.id,
-            },
-            create: {
-                userId: session.user.id,
-                totalWatchTime: watchTime,
-                videosCompleted: video.completed ? 1 : 0,
-                lastWatchDate: new Date(),
-                currentStreak: 1,
-                longestStreak: 1,
-            },
-            update: {
-                totalWatchTime: {
-                    increment: watchTime,
-                },
-                lastWatchDate: new Date(),
-            },
+            return historyEntry;
         });
 
-        return NextResponse.json(historyEntry, { status: 201 });
+        return NextResponse.json(result, { status: 201 });
     } catch (error) {
         console.error("[HISTORY_POST]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });

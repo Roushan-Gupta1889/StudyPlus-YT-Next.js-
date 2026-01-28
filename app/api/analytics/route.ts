@@ -27,6 +27,73 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // Calculate current streak
+        const allHistory = await prisma.watchHistory.findMany({
+            where: {
+                userId: session.user.id,
+            },
+            orderBy: {
+                watchedAt: "desc",
+            },
+        });
+
+        let currentStreak = 0;
+        let longestStreak = 0;
+
+        if (allHistory.length > 0) {
+            // Group watch history by day
+            const daySet = new Set<string>();
+            allHistory.forEach(entry => {
+                const day = entry.watchedAt.toISOString().split("T")[0];
+                daySet.add(day);
+            });
+
+            // Sort days in descending order
+            const sortedDays = Array.from(daySet).sort().reverse();
+
+            // Calculate current streak (consecutive days from today backwards)
+            const today = new Date().toISOString().split("T")[0];
+            let checkDate = new Date(today);
+
+            for (let i = 0; i < sortedDays.length; i++) {
+                const currentDay = checkDate.toISOString().split("T")[0];
+
+                if (sortedDays.includes(currentDay)) {
+                    currentStreak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+
+            // Calculate longest streak (all time)
+            let tempStreak = 1;
+            for (let i = 0; i < sortedDays.length - 1; i++) {
+                const currentDate = new Date(sortedDays[i]);
+                const nextDate = new Date(sortedDays[i + 1]);
+                const dayDiff = Math.round((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                if (dayDiff === 1) {
+                    tempStreak++;
+                    longestStreak = Math.max(longestStreak, tempStreak);
+                } else {
+                    tempStreak = 1;
+                }
+            }
+            longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
+        }
+
+        // Update analytics with calculated streaks
+        analytics = await prisma.userAnalytics.update({
+            where: {
+                userId: session.user.id,
+            },
+            data: {
+                currentStreak,
+                longestStreak,
+            },
+        });
+
         // Get weekly activity (last 7 days)
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

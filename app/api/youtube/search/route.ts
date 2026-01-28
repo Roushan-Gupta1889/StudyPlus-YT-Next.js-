@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Rate limiting
-        const ip = request.ip ?? request.headers.get("x-forwarded-for") ?? "anonymous";
+        const ip = (request as any).ip ?? request.headers.get("x-forwarded-for") ?? "anonymous";
         try {
             await limiter.check(10, ip); // 10 requests per minute
         } catch {

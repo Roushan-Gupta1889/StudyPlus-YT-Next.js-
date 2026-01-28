@@ -23,9 +23,11 @@ export async function GET(request: NextRequest) {
             include: {
                 video: {
                     select: {
+                        id: true,
                         title: true,
                         youtubeId: true,
                         thumbnail: true,
+                        channel: true,
                     },
                 },
             },
@@ -78,8 +80,11 @@ export async function POST(request: NextRequest) {
             include: {
                 video: {
                     select: {
+                        id: true,
                         title: true,
                         youtubeId: true,
+                        thumbnail: true,
+                        channel: true,
                     },
                 },
             },

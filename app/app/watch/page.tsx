@@ -41,6 +41,7 @@ export default function WatchPage() {
     const [newNote, setNewNote] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [playerRef, setPlayerRef] = useState<any>(null);
     const [watchSession, setWatchSession] = useState({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
@@ -90,14 +91,15 @@ export default function WatchPage() {
         });
     };
 
-    // Sync remaining time when switching videos or unmounting
+    // Sync remaining time ONLY when unmounting (not when switching videos)
     useEffect(() => {
         return () => {
-            if (watchSession.accumulatedTime > 0) {
+            if (watchSession.accumulatedTime > 0 && selectedVideo) {
                 syncWatchHistory(watchSession.accumulatedTime);
             }
         };
-    }, [watchSession.accumulatedTime, selectedVideo]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Empty dependency - only runs on unmount
 
     useEffect(() => {
         // Reset session when video changes
@@ -296,6 +298,7 @@ export default function WatchPage() {
                                 ref={setPlayerRef}
                                 src={`https://www.youtube.com/watch?v=${selectedVideo.youtubeId}`}
                                 playing={isPlaying}
+                                muted={isMuted}
                                 controls
                                 width="100%"
                                 height="100%"
@@ -303,17 +306,11 @@ export default function WatchPage() {
                                 onPlay={() => setIsPlaying(true)}
                                 onPause={() => setIsPlaying(false)}
                                 onProgress={(state) => {
-                                    // Track watch time (approximated by progress interval)
-                                    // ReactPlayer fires onProgress roughly every second
-                                    // We'll trust the internal timer implicitly for simplicity, 
-                                    // or better, just accumulate 1s on every tick if playing?
-                                    // Actually, let's use a simpler approach: 
-                                    // Just sync valid watch time.
                                     handleProgress();
                                 }}
                                 config={{
                                     youtube: {
-                                        rel: 0
+                                        rel: 0,
                                     }
                                 }}
                             />

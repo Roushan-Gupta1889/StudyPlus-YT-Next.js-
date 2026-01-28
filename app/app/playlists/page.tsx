@@ -73,7 +73,7 @@ export default function PlaylistsPage() {
       }
 
       toast.success(`Updated ${data.updated} video durations!`);
-      
+
       // Refresh playlists to show updated durations
       await fetchPlaylists();
     } catch (error) {
@@ -107,11 +107,19 @@ export default function PlaylistsPage() {
         throw new Error(data.error || "Failed to add playlist");
       }
 
-      setPlaylists([data.playlist, ...playlists]);
+      // Add playlist stats for immediate display
+      const newPlaylistWithStats = {
+        ...data.playlist,
+        totalVideos: data.videosAdded || 0,
+        completedVideos: 0,
+        totalDuration: 0,
+      };
+
+      setPlaylists([newPlaylistWithStats, ...playlists]);
       setPlaylistUrl("");
       setPlaylistName("");
       setOpen(false);
-      toast.success(`Playlist added with ${data.videosAdded} videos!`);
+      toast.success(`Playlist added with ${data.videosAdded} videos! Open it to view`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add playlist");
     } finally {
@@ -150,7 +158,7 @@ export default function PlaylistsPage() {
         </div>
 
         <div className="flex gap-2">
-         
+
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -227,7 +235,7 @@ export default function PlaylistsPage() {
             <Link key={playlist.id} href={`/app/playlists/${playlist.id}`}>
               <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
                 {/* Thumbnail Section */}
-                <div 
+                <div
                   className="flex-1 relative group bg-muted"
                   style={{
                     backgroundImage: playlist.thumbnail ? `url(${playlist.thumbnail})` : undefined,

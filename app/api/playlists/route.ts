@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPlaylistVideos } from "@/lib/youtube";
+import { getPlaylistVideos, extractPlaylistId } from "@/lib/youtube";
 
 // GET /api/playlists - Fetch user's playlists
 export async function GET(request: NextRequest) {
@@ -66,8 +66,19 @@ export async function POST(request: NextRequest) {
         let newPlaylist;
 
         if (youtubeId) {
+            // Extract playlist ID from URL if needed
+            const playlistId = extractPlaylistId(youtubeId);
+
+            if (!playlistId) {
+                return NextResponse.json({ error: "Invalid playlist URL or ID" }, { status: 400 });
+            }
+
             // Import from YouTube
-            const videos = await getPlaylistVideos(youtubeId);
+            const videos = await getPlaylistVideos(playlistId);
+
+            if (videos.length === 0) {
+                return NextResponse.json({ error: "Could not fetch playlist videos" }, { status: 400 });
+            }
 
             newPlaylist = await prisma.playlist.create({
                 data: {
