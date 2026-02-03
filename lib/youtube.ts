@@ -217,42 +217,62 @@ export async function searchYouTube(
     }
 }
 
-// Get videos from a playlist
-export async function getPlaylistVideos(playlistId: string, maxResults: number = 50): Promise<YouTubeVideo[]> {
+// Get videos from a playlist (with pagination to get ALL videos)
+export async function getPlaylistVideos(playlistId: string): Promise<YouTubeVideo[]> {
     try {
-        // 1. Get playlist items (video IDs)
-        const playlistResponse = await axios.get(`${YOUTUBE_API_URL}/playlistItems`, {
-            params: {
-                part: "snippet,contentDetails",
-                playlistId: playlistId,
-                maxResults: maxResults, // Max allowed by API per page is 50
-                key: YOUTUBE_API_KEY,
-            },
-        });
+        const allVideos: YouTubeVideo[] = [];
+        let nextPageToken: string | undefined = undefined;
 
-        if (!playlistResponse.data.items || playlistResponse.data.items.length === 0) {
-            return [];
-        }
+        // Keep fetching pages until there are no more
+        do {
+            // 1. Get playlist items (video IDs) - one page at a time
+            const playlistResponse: any = await axios.get(`${YOUTUBE_API_URL}/playlistItems`, {
+                params: {
+                    part: "snippet,contentDetails",
+                    playlistId: playlistId,
+                    maxResults: 50, // Max allowed by API per page is 50
+                    pageToken: nextPageToken,
+                    key: YOUTUBE_API_KEY,
+                },
+            });
 
-        const videoIds = playlistResponse.data.items.map((item: any) => item.contentDetails.videoId).join(",");
+            if (!playlistResponse.data.items || playlistResponse.data.items.length === 0) {
+                break;
+            }
 
-        // 2. Get video details (duration is needed)
-        const videosResponse = await axios.get(`${YOUTUBE_API_URL}/videos`, {
-            params: {
-                part: "snippet,contentDetails",
-                id: videoIds,
-                key: YOUTUBE_API_KEY,
-            },
-        });
+            const videoIds = playlistResponse.data.items
+                .map((item: any) => item.contentDetails.videoId)
+                .join(",");
 
-        return videosResponse.data.items.map((item: any) => ({
-            id: item.id,
-            title: item.snippet.title,
-            description: item.snippet.description,
-            thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
-            duration: parseDuration(item.contentDetails.duration),
-            channel: item.snippet.channelTitle,
-        }));
+            // 2. Get video details (duration is needed) for this page
+            const videosResponse = await axios.get(`${YOUTUBE_API_URL}/videos`, {
+                params: {
+                    part: "snippet,contentDetails",
+                    id: videoIds,
+                    key: YOUTUBE_API_KEY,
+                },
+            });
+
+            const videos = videosResponse.data.items.map((item: any) => ({
+                id: item.id,
+                title: item.snippet.title,
+                description: item.snippet.description,
+                thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
+                duration: parseDuration(item.contentDetails.duration),
+                channel: item.snippet.channelTitle,
+            }));
+
+            allVideos.push(...videos);
+
+            // Check if there are more pages
+            nextPageToken = playlistResponse.data.nextPageToken;
+
+            console.log(`[YOUTUBE] Fetched ${videos.length} videos from playlist (Total so far: ${allVideos.length})`);
+
+        } while (nextPageToken);
+
+        console.log(`[YOUTUBE] Successfully fetched all ${allVideos.length} videos from playlist ${playlistId}`);
+        return allVideos;
     } catch (error) {
         console.error("[YOUTUBE_GET_PLAYLIST_VIDEOS]", error);
         return [];

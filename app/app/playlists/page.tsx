@@ -146,6 +146,33 @@ export default function PlaylistsPage() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (playlists.length === 0) {
+      toast.error("No playlists to clear");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ALL ${playlists.length} playlists? This cannot be undone.`)) return;
+
+    try {
+      // Delete all playlists in parallel
+      const deletePromises = playlists.map(playlist =>
+        fetch(`/api/playlists/delete`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: playlist.id }),
+        })
+      );
+
+      await Promise.all(deletePromises);
+
+      setPlaylists([]);
+      toast.success("All playlists cleared successfully");
+    } catch (error) {
+      toast.error("Failed to clear all playlists");
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -158,7 +185,16 @@ export default function PlaylistsPage() {
         </div>
 
         <div className="flex gap-2">
-
+          {playlists.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleClearAll}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear All
+            </Button>
+          )}
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>

@@ -131,7 +131,29 @@ export default function IITMCurriculumPage() {
         try {
             toast.loading("Loading course...", { id: "course-load" });
 
-            // Auto-import the playlist for the user
+            // FIRST: Check if playlist already exists for this course
+            const playlistsRes = await fetch("/api/playlists");
+            if (playlistsRes.ok) {
+                const playlists = await playlistsRes.json();
+                const existingPlaylist = playlists.find((p: any) =>
+                    p.name === course.title
+                );
+
+                if (existingPlaylist) {
+                    // Playlist already exists - use it
+                    const detailsRes = await fetch(`/api/playlists/${existingPlaylist.id}`);
+                    if (detailsRes.ok) {
+                        const details = await detailsRes.json();
+                        if (details.videos && details.videos.length > 0) {
+                            toast.dismiss("course-load");
+                            router.push(`/app/watch/${details.videos[0].video.id}?playlistId=${existingPlaylist.id}`);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // SECOND: No existing playlist found - create a new one
             const response = await fetch("/api/playlists", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -152,30 +174,8 @@ export default function IITMCurriculumPage() {
                     if (playlistDetails.videos && playlistDetails.videos.length > 0) {
                         // Navigate to first video WITH playlist context
                         toast.dismiss("course-load");
-                        router.push(`/app/watch?v=${playlistDetails.videos[0].id}&playlist=${playlist.id}`);
+                        router.push(`/app/watch/${playlistDetails.videos[0].video.id}?playlistId=${playlist.id}`);
                         return;
-                    }
-                }
-            } else {
-                // Playlist might already exist - try to find it
-                const playlistsRes = await fetch("/api/playlists");
-                if (playlistsRes.ok) {
-                    const playlists = await playlistsRes.json();
-                    const existingPlaylist = playlists.find((p: any) =>
-                        p.name === course.title
-                    );
-
-                    if (existingPlaylist) {
-                        // Fetch playlist details
-                        const detailsRes = await fetch(`/api/playlists/${existingPlaylist.id}`);
-                        if (detailsRes.ok) {
-                            const details = await detailsRes.json();
-                            if (details.videos && details.videos.length > 0) {
-                                toast.dismiss("course-load");
-                                router.push(`/app/watch?v=${details.videos[0].id}&playlist=${existingPlaylist.id}`);
-                                return;
-                            }
-                        }
                     }
                 }
             }
@@ -187,6 +187,7 @@ export default function IITMCurriculumPage() {
             toast.error("Failed to load course. Please try again.", { id: "course-load" });
         }
     };
+
 
     if (status === "loading" || loading) {
         return (
