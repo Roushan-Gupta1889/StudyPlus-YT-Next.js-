@@ -17,7 +17,9 @@ import {
   Layers,
   Library,
   Folder,
+  GraduationCap,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -25,13 +27,17 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/app/dashboard" },
   { icon: Folder, label: "Library", href: "/app/watch" },
-  
+
   { icon: PlayCircle, label: "Videos", href: "/app/videos" },
   { icon: ListVideo, label: "Playlists", href: "/app/playlists" },
   { icon: FileText, label: "Notes", href: "/app/notes" },
   { icon: BarChart3, label: "Analytics", href: "/app/analytics" },
   { icon: Download, label: "Install App", href: "/install", mobileOnly: true },
   { icon: History, label: "History", href: "/app/history" },
+];
+
+const specialItems = [
+  { icon: GraduationCap, label: "IITM Curriculum", href: "/app/iitm", highlight: true },
 ];
 
 interface AppSidebarProps {
@@ -43,6 +49,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: AppSidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   // On mobile, show/hide based on mobileMenuOpen
   if (isMobile) {
@@ -98,6 +105,29 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
 
         {/* Footer */}
         <div className="p-3 border-t border-sidebar-border space-y-2">
+          {/* IITM Curriculum - Special highlight */}
+          <div className="px-2 mb-1">
+            <div className="text-xs font-semibold text-muted-foreground mb-1">IITM BS Programme</div>
+          </div>
+          {specialItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border",
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary font-medium"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-primary/30"
+                )}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
           <Link
             href="/app/settings"
             className={cn(
@@ -175,7 +205,38 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
+      <div className="p-3 border-t border-sidebar-border space-y-2">
+        {/* IITM Curriculum - Special highlight - Only for IITM users */}
+        {session?.user?.isIITMUser && (
+          <>
+            {!collapsed && (
+              <div className="px-2 mb-1">
+                <div className="text-xs font-semibold text-muted-foreground">IITM BS Programme</div>
+              </div>
+            )}
+            {specialItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border",
+                    isActive
+                      ? "bg-primary text-primary-foreground border-primary font-medium"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-primary/30",
+                    collapsed && "justify-center border-0"
+                  )}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+              );
+            })}
+          </>
+        )}
+
         <Link
           href="/app/settings"
           title={collapsed ? "Settings" : undefined}

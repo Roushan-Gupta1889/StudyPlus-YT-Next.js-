@@ -27,6 +27,7 @@ model User {
   watchHistory  WatchHistory[]
   analytics     UserAnalytics?
   preferences   UserPreferences?
+  iitmProgress  IITMUserProgress[]
 
   @@map("users")
 }
@@ -161,4 +162,92 @@ model UserPreferences {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
+}
+
+// ============================================
+// IITM BS Curriculum Models
+// ============================================
+
+// Top-level curriculum sections (Foundation, Diploma, BSc, BS, etc.)
+model IITMCurriculumSection {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?  @db.Text
+  order       Int
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categories IITMCourseCategory[]
+
+  @@map("iitm_curriculum_sections")
+}
+
+// Categories within sections (Core, Electives, Projects, etc.)
+model IITMCourseCategory {
+  id          String   @id @default(cuid())
+  sectionId   String
+  slug        String
+  title       String
+  description String?  @db.Text
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  section IITMCurriculumSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  courses IITMCourse[]
+
+  @@unique([sectionId, slug])
+  @@index([sectionId])
+  @@map("iitm_course_categories")
+}
+
+// Individual IITM courses/playlists
+model IITMCourse {
+  id                String   @id @default(cuid())
+  categoryId        String
+  slug              String   @unique
+  title             String
+  description       String?  @db.Text
+  courseCode        String?  // Official IITM course code (e.g., BSMA1001)
+  youtubePlaylistId String
+  thumbnail         String?
+  lessonsCount      Int      @default(0)
+  duration          Int?     // Total duration in seconds (optional)
+  order             Int
+  level             String?  // "beginner", "intermediate", "advanced"
+  credits           Int?     // Course credits (e.g., 4)
+  isProject         Boolean  @default(false) // True for project courses
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  category     IITMCourseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userProgress IITMUserProgress[]
+
+  @@index([categoryId])
+  @@map("iitm_courses")
+}
+
+// Track individual user progress on IITM courses
+model IITMUserProgress {
+  id             String    @id @default(cuid())
+  userId         String
+  courseId       String
+  videosWatched  Int       @default(0)
+  totalVideos    Int       @default(0)
+  completionRate Int       @default(0) // 0-100
+  lastWatchedAt  DateTime?
+  isStarted      Boolean   @default(false)
+  isCompleted    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course IITMCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@map("iitm_user_progress")
 }

@@ -34,8 +34,11 @@ export default function WatchPage() {
     const { data: session } = useSession();
     const searchParams = useSearchParams();
     const videoIdFromUrl = searchParams.get("v");
+    const playlistIdFromUrl = searchParams.get("playlist");
 
     const [videos, setVideos] = useState<Video[]>([]);
+    const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
+    const [playlistId, setPlaylistId] = useState<string | null>(null);
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     const [notes, setNotes] = useState<Note[]>([]);
     const [newNote, setNewNote] = useState("");
@@ -106,58 +109,85 @@ export default function WatchPage() {
         setWatchSession({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
     }, [selectedVideo]);
 
-    // Fetch user's videos
+    // Fetch user's videos or playlist videos
     useEffect(() => {
         const fetchVideos = async () => {
             try {
                 setIsLoading(true);
-                const res = await fetch("/api/videos");
-                if (res.ok) {
-                    const data = await res.json();
-                    setVideos(data);
 
-                    // Handle video selection from URL
-                    if (videoIdFromUrl) {
-                        const videoInLibrary = data.find((v: Video) => v.id === videoIdFromUrl);
+                // If playlist ID is provided, fetch videos from that playlist
+                if (playlistIdFromUrl) {
+                    setPlaylistId(playlistIdFromUrl);
+                    const playlistRes = await fetch(`/api/playlists/${playlistIdFromUrl}`);
+                    if (playlistRes.ok) {
+                        const playlistData = await playlistRes.json();
+                        const playlistVideos = playlistData.videos || [];
+                        setVideos(playlistVideos);
+                        setFilteredVideos(playlistVideos);
 
-                        if (videoInLibrary) {
-                            setSelectedVideo(videoInLibrary);
-                        } else {
-                            // Video ID in URL but not in library (maybe soft-deleted or from playlist)
-                            // Try to fetch it directly
-                            try {
-                                const singleRes = await fetch(`/api/videos/${videoIdFromUrl}`);
-                                if (singleRes.ok) {
-                                    const explicitVideo = await singleRes.json();
-                                    setSelectedVideo(explicitVideo);
-
-                                    // Auto-restore to library if it exists but was hidden
-                                    await fetch("/api/videos", {
-                                        method: "POST", // POST logic handles restoration
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                            youtubeId: explicitVideo.youtubeId,
-                                            title: explicitVideo.title, // These fields are ignored if exists
-                                        })
-                                    });
-
-                                    // Refresh library list to include it
-                                    const refreshedRes = await fetch("/api/videos");
-                                    if (refreshedRes.ok) {
-                                        setVideos(await refreshedRes.json());
-                                    }
-                                }
-                            } catch (e) {
-                                console.error("Error fetching single video", e);
+                        // Select video from URL or first video
+                        if (videoIdFromUrl) {
+                            const videoInPlaylist = playlistVideos.find((v: Video) => v.id === videoIdFromUrl);
+                            if (videoInPlaylist) {
+                                setSelectedVideo(videoInPlaylist);
+                            } else if (playlistVideos.length > 0) {
+                                setSelectedVideo(playlistVideos[0]);
                             }
+                        } else if (playlistVideos.length > 0) {
+                            setSelectedVideo(playlistVideos[0]);
                         }
-                    } else if (data.length > 0) {
-                        setSelectedVideo(data[0]);
+                    }
+                } else {
+                    // No playlist - fetch all library videos
+                    const res = await fetch("/api/videos");
+                    if (res.ok) {
+                        const data = await res.json();
+                        setVideos(data);
+                        setFilteredVideos(data);
+
+                        // Handle video selection from URL
+                        if (videoIdFromUrl) {
+                            const videoInLibrary = data.find((v: Video) => v.id === videoIdFromUrl);
+
+                            if (videoInLibrary) {
+                                setSelectedVideo(videoInLibrary);
+                            } else {
+                                // Video ID in URL but not in library (maybe soft-deleted or from playlist)
+                                // Try to fetch it directly
+                                try {
+                                    const singleRes = await fetch(`/api/videos/${videoIdFromUrl}`);
+                                    if (singleRes.ok) {
+                                        const explicitVideo = await singleRes.json();
+                                        setSelectedVideo(explicitVideo);
+
+                                        // Auto-restore to library if it exists but was hidden
+                                        await fetch("/api/videos", {
+                                            method: "POST", // POST logic handles restoration
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                                youtubeId: explicitVideo.youtubeId,
+                                                title: explicitVideo.title, // These fields are ignored if exists
+                                            })
+                                        });
+
+                                        // Refresh library list to include it
+                                        const refreshedRes = await fetch("/api/videos");
+                                        if (refreshedRes.ok) {
+                                            setVideos(await refreshedRes.json());
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("Error fetching single video", e);
+                                }
+                            }
+                        } else if (data.length > 0) {
+                            setSelectedVideo(data[0]);
+                        }
                     }
                 }
             } catch (error) {
                 console.error("Error fetching videos:", error);
-                toast.error("Failed to load video library");
+                toast.error("Failed to load videos");
             } finally {
                 setIsLoading(false);
             }
@@ -166,7 +196,7 @@ export default function WatchPage() {
         if (session) {
             fetchVideos();
         }
-    }, [session, videoIdFromUrl]);
+    }, [session, videoIdFromUrl, playlistIdFromUrl]);
 
     // Fetch notes for selected video
     useEffect(() => {
@@ -357,7 +387,7 @@ export default function WatchPage() {
                             )}
                         </div>
                         <div className="space-y-3">
-                            {videos.map((video) => (
+                            {filteredVideos.map((video) => (
                                 <div
                                     key={video.id}
                                     onClick={() => setSelectedVideo(video)}
@@ -386,14 +416,16 @@ export default function WatchPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6 text-muted-foreground hover:text-destructive"
-                                        onClick={(e) => handleDeleteVideo(e, video.id)}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                    {!playlistId && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 h-6 w-6 text-muted-foreground hover:text-destructive"
+                                            onClick={(e) => handleDeleteVideo(e, video.id)}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                 </div>
                             ))}
                         </div>
