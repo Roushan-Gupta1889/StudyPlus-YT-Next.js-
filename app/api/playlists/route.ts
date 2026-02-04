@@ -73,8 +73,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: "Invalid playlist URL or ID" }, { status: 400 });
             }
 
-            // Import from YouTube
+            // Import all videos from YouTube
+            console.log(`[PLAYLISTS] Starting import for playlist ${playlistId}`);
             const videos = await getPlaylistVideos(playlistId);
+            console.log(`[PLAYLISTS] Fetched ${videos.length} videos from YouTube`);
 
             if (videos.length === 0) {
                 return NextResponse.json({ error: "Could not fetch playlist videos" }, { status: 400 });
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
                 },
             });
 
-            // Add videos to database and playlist
+            // Add all videos to database and playlist
             for (let i = 0; i < videos.length; i++) {
                 const videoData: any = videos[i];
 
@@ -122,6 +124,8 @@ export async function POST(request: NextRequest) {
                     },
                 });
             }
+
+            console.log(`[PLAYLISTS] Successfully imported ${videos.length} videos`);
         } else {
             // Create empty playlist
             newPlaylist = await prisma.playlist.create({

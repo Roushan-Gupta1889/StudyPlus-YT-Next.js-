@@ -129,7 +129,7 @@ export default function IITMCurriculumPage() {
 
     const handleStartCourse = async (course: Course) => {
         try {
-            toast.loading("Loading course...", { id: "course-load" });
+            toast.loading("Preparing course...", { id: "course-load" });
 
             // FIRST: Check if playlist already exists for this course
             const playlistsRes = await fetch("/api/playlists");
@@ -154,6 +154,12 @@ export default function IITMCurriculumPage() {
             }
 
             // SECOND: No existing playlist found - create a new one
+            // Update message to inform about larger playlists
+            toast.loading(
+                "Importing course playlist... This may take a moment for courses with 100+ videos. Please wait.",
+                { id: "course-load" }
+            );
+
             const response = await fetch("/api/playlists", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -173,7 +179,7 @@ export default function IITMCurriculumPage() {
 
                     if (playlistDetails.videos && playlistDetails.videos.length > 0) {
                         // Navigate to first video WITH playlist context
-                        toast.dismiss("course-load");
+                        toast.success(`Successfully imported ${playlistDetails.videos.length} videos!`, { id: "course-load" });
                         router.push(`/app/watch/${playlistDetails.videos[0].video.id}?playlistId=${playlist.id}`);
                         return;
                     }
@@ -187,6 +193,7 @@ export default function IITMCurriculumPage() {
             toast.error("Failed to load course. Please try again.", { id: "course-load" });
         }
     };
+
 
 
     if (status === "loading" || loading) {
