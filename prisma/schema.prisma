@@ -108,12 +108,13 @@ model WatchHistory {
   id         String   @id @default(cuid())
   userId     String
   videoId    String
-  watchedAt  DateTime @default(now())
-  watchTime  Int // watch duration in seconds
+  watchedAt  DateTime @updatedAt
+  watchTime  Int
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, videoId])
   @@index([userId])
   @@index([videoId])
   @@map("watch_history")

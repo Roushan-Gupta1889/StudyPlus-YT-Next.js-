@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/history - Fetch watch history
+// ==============================
+// GET /api/history
+// Fetch watch history
+// ==============================
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
             orderBy: {
                 watchedAt: "desc",
             },
-            take: 50, // Limit to last 50 items
+            take: 50,
         });
 
         return NextResponse.json(history);
@@ -32,7 +35,10 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST /api/history - Log a watch event
+// ==============================
+// POST /api/history
+// Log watch progress (NO DUPLICATES)
+// ==============================
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -44,98 +50,75 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         let { videoId, watchTime } = body;
 
-        // Validate watch time
         if (!videoId || watchTime === undefined) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Missing required fields" },
+                { status: 400 }
+            );
         }
 
         if (watchTime <= 0) {
-            return NextResponse.json({ error: "Watch time must be positive" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Watch time must be positive" },
+                { status: 400 }
+            );
         }
 
-        // Cap watch time to reasonable maximum (12 hours per sync)
+        // Cap watch time (12 hours safety)
         if (watchTime > 3600 * 12) {
             watchTime = 3600 * 12;
         }
 
-        // Verify video exists and belongs to user
         const video = await prisma.video.findUnique({
-            where: {
-                id: videoId,
-            },
+            where: { id: videoId },
         });
 
         if (!video || video.userId !== session.user.id) {
-            return NextResponse.json({ error: "Video not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Video not found" },
+                { status: 404 }
+            );
         }
 
-        // Calculate total watch time for this video
-        const existingHistory = await prisma.watchHistory.findMany({
-            where: {
-                userId: session.user.id,
-                videoId: videoId,
-            },
-        });
-
-        const totalWatchTime = existingHistory.reduce((sum, entry) => sum + entry.watchTime, 0) + watchTime;
-
-        // Calculate progress percentage (0-100)
-        let progress = 0;
-        if (video.duration && video.duration > 0) {
-            progress = Math.min(100, Math.round((totalWatchTime / video.duration) * 100));
-        }
-
-        // Determine if video is completed (95% threshold)
-        const isCompleted = progress >= 95;
-        const wasCompleted = video.completed;
-
-        // Check if there's a recent history entry (e.g., within last 1 hour)
-        const recentEntry = await prisma.watchHistory.findFirst({
-            where: {
-                userId: session.user.id,
-                videoId: videoId,
-                watchedAt: {
-                    gt: new Date(Date.now() - 60 * 60 * 1000), // Last 1 hour
-                },
-            },
-            orderBy: {
-                watchedAt: "desc",
-            },
-        });
-
-        // Use transaction to ensure data consistency
         const result = await prisma.$transaction(async (tx) => {
-            let historyEntry;
-
-            if (recentEntry) {
-                // Update existing entry
-                historyEntry = await tx.watchHistory.update({
-                    where: {
-                        id: recentEntry.id,
-                    },
-                    data: {
-                        watchTime: {
-                            increment: watchTime,
-                        },
-                        watchedAt: new Date(),
-                    },
-                });
-            } else {
-                // Create new watch history entry
-                historyEntry = await tx.watchHistory.create({
-                    data: {
+            // 🔥 ONE history row per (userId + videoId)
+            const historyEntry = await tx.watchHistory.upsert({
+                where: {
+                    userId_videoId: {
                         userId: session.user.id,
                         videoId,
-                        watchTime,
                     },
-                });
+                },
+                create: {
+                    userId: session.user.id,
+                    videoId,
+                    watchTime,
+                },
+                update: {
+                    watchTime: {
+                        increment: watchTime,
+                    },
+                    watchedAt: new Date(),
+                },
+            });
+
+            // Calculate progress
+            let progress = 0;
+            if (video.duration && video.duration > 0) {
+                progress = Math.min(
+                    100,
+                    Math.round(
+                        (historyEntry.watchTime / video.duration) * 100
+                    )
+                );
             }
 
-            // Update video progress and completion status
+            const isCompleted = progress >= 95;
+            const wasCompleted = video.completed;
+
+            // Update video progress
             await tx.video.update({
-                where: {
-                    id: videoId,
-                },
+                where: { id: videoId },
                 data: {
                     progress,
                     completed: isCompleted,
@@ -143,8 +126,9 @@ export async function POST(request: NextRequest) {
                 },
             });
 
-            // Update user analytics
-            const videosCompletedIncrement = !wasCompleted && isCompleted ? 1 : 0;
+            // Update analytics
+            const videosCompletedIncrement =
+                !wasCompleted && isCompleted ? 1 : 0;
 
             await tx.userAnalytics.upsert({
                 where: {
@@ -179,8 +163,9 @@ export async function POST(request: NextRequest) {
     }
 }
 
-
-// DELETE /api/history - Delete history items
+// ==============================
+// DELETE /api/history
+// ==============================
 export async function DELETE(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -194,28 +179,32 @@ export async function DELETE(request: NextRequest) {
         const clearAll = searchParams.get("clearAll");
 
         if (clearAll === "true") {
-            // Delete all history for user
             await prisma.watchHistory.deleteMany({
                 where: {
                     userId: session.user.id,
                 },
             });
+
             return NextResponse.json({ message: "History cleared" });
         }
 
         if (id) {
-            // Delete specific history item
-            // Ensure it belongs to the user
             const historyItem = await prisma.watchHistory.findUnique({
                 where: { id },
             });
 
             if (!historyItem) {
-                return NextResponse.json({ error: "Item not found" }, { status: 404 });
+                return NextResponse.json(
+                    { error: "Item not found" },
+                    { status: 404 }
+                );
             }
 
             if (historyItem.userId !== session.user.id) {
-                return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+                return NextResponse.json(
+                    { error: "Unauthorized" },
+                    { status: 403 }
+                );
             }
 
             await prisma.watchHistory.delete({
@@ -225,7 +214,10 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ message: "Item deleted" });
         }
 
-        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+        return NextResponse.json(
+            { error: "Missing parameters" },
+            { status: 400 }
+        );
     } catch (error) {
         console.error("[HISTORY_DELETE]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
