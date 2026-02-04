@@ -108,18 +108,12 @@ export default function PlaylistsPage() {
       }
 
       // Add playlist stats for immediate display
-      const newPlaylistWithStats = {
-        ...data.playlist,
-        totalVideos: data.videosAdded || 0,
-        completedVideos: 0,
-        totalDuration: 0,
-      };
+      await fetchPlaylists();
 
-      setPlaylists([newPlaylistWithStats, ...playlists]);
       setPlaylistUrl("");
       setPlaylistName("");
       setOpen(false);
-      toast.success(`Playlist added with ${data.videosAdded} videos! Open it to view`);
+      toast.success(`Playlist added with ${data.videosAdded} videos!`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add playlist");
     } finally {
