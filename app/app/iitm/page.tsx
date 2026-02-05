@@ -154,9 +154,9 @@ export default function IITMCurriculumPage() {
             }
 
             // SECOND: No existing playlist found - create a new one
-            // Update message to inform about larger playlists
+            // Update message to inform about playlist import
             toast.loading(
-                "Importing course playlist... This may take a moment for courses with 100+ videos. Please wait.",
+                "Importing course playlist... This may take a moment. Please wait.",
                 { id: "course-load" }
             );
 

@@ -25,10 +25,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get all videos for this user (not in any playlist)
+    // Get all videos for this user (in library, not in any playlist)
     const videos = await prisma.video.findMany({
       where: {
         userId: user.id,
+        inLibrary: true, // Only show videos that are actively in the library
         playlistVideos: {
           none: {}, // Videos not in any playlist
         },

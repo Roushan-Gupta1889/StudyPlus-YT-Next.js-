@@ -120,12 +120,14 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
         body: JSON.stringify({
           name: playlist.title,
           description: playlist.description,
-          youtubeId: playlist.id,
+          youtubeId: `https://www.youtube.com/playlist?list=${playlist.id}`, // Send full URL
         }),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to import playlist");
+        const errorData = await res.json();
+        console.error("Playlist import error response:", errorData);
+        throw new Error(errorData.error || "Failed to import playlist");
       }
 
       toast.success("Playlist imported successfully!");
@@ -136,7 +138,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
 
     } catch (error) {
       console.error("Import playlist error:", error);
-      toast.error("Failed to import playlist");
+      toast.error(error instanceof Error ? error.message : "Failed to import playlist");
     } finally {
       setImportingPlaylistId(null);
     }

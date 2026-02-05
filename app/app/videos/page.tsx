@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Trash2, Play } from "lucide-react";
+import { Plus, Loader2, Trash2, Play, Search } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Image from "next/image";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Video {
   id: string;
@@ -26,6 +27,11 @@ export default function VideosPage() {
   const [submitting, setSubmitting] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [open, setOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"url" | "search">("url");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   // Fetch videos
   useEffect(() => {
@@ -42,6 +48,63 @@ export default function VideosPage() {
       toast.error("Failed to load videos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Search YouTube
+  useEffect(() => {
+    const searchYouTube = async () => {
+      if (!debouncedSearchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      try {
+        setIsSearching(true);
+        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(debouncedSearchQuery)}&type=video`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    searchYouTube();
+  }, [debouncedSearchQuery]);
+
+  const handleSaveFromSearch = async (video: any) => {
+    try {
+      setSubmitting(true);
+      const response = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          youtubeId: video.id,
+          title: video.title,
+          description: video.description,
+          thumbnail: video.thumbnail,
+          duration: video.duration,
+          channel: video.channel,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to add video");
+      }
+
+      setVideos([data, ...videos]);
+      setOpen(false);
+      toast.success("Video added successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add video");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -114,14 +177,21 @@ export default function VideosPage() {
               onClick={async () => {
                 if (!confirm("Remove all videos from your library?")) return;
                 try {
+                  console.log("[CLEAR_ALL] Attempting to clear all videos...");
                   const res = await fetch("/api/videos?clearAll=true", { method: "DELETE" });
+                  const data = await res.json();
+
+                  console.log("[CLEAR_ALL] API Response:", data);
+
                   if (res.ok) {
                     setVideos([]);
-                    toast.success("Library cleared");
+                    toast.success(`Library cleared! Deleted ${data.deletedCount || 0} videos.`);
                   } else {
-                    toast.error("Failed to clear library");
+                    console.error("[CLEAR_ALL] API Error:", data);
+                    toast.error(data.details || "Failed to clear library");
                   }
                 } catch (e) {
+                  console.error("[CLEAR_ALL] Exception:", e);
                   toast.error("Failed to clear library");
                 }
               }}
@@ -130,39 +200,115 @@ export default function VideosPage() {
             </Button>
           )}
 
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+          <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setAddMode("url"); setSearchQuery(""); setSearchResults([]); } }}>
+            <DialogTrigger asChild suppressHydrationWarning>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Video
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent suppressHydrationWarning className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
               <DialogHeader>
                 <DialogTitle>Add YouTube Video</DialogTitle>
               </DialogHeader>
 
-              <form onSubmit={handleAddVideo} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    YouTube URL or Video ID
-                  </label>
-                  <Input
-                    placeholder="https://youtube.com/watch?v=... or paste video ID"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    disabled={submitting}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Paste the full YouTube URL or just the video ID
-                  </p>
-                </div>
+              {/* Tabs */}
+              <div className="flex bg-muted rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setAddMode("url")}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${addMode === "url" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  Paste URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddMode("search")}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${addMode === "search" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  Search YouTube
+                </button>
+              </div>
 
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {submitting ? "Adding..." : "Add Video"}
-                </Button>
-              </form>
+              {/* URL Input Mode */}
+              {addMode === "url" && (
+                <form onSubmit={handleAddVideo} className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">
+                      YouTube URL or Video ID
+                    </label>
+                    <Input
+                      placeholder="https://youtube.com/watch?v=... or paste video ID"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      disabled={submitting}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Paste the full YouTube URL or just the video ID
+                    </p>
+                  </div>
+
+                  <Button type="submit" disabled={submitting} className="w-full">
+                    {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {submitting ? "Adding..." : "Add Video"}
+                  </Button>
+                </form>
+              )}
+
+              {/* Search Mode */}
+              {addMode === "search" && (
+                <div className="flex flex-col flex-1 min-h-0">
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search YouTube videos..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  <div className="flex-1 overflow-auto min-h-0">
+                    {!searchQuery ? (
+                      <div className="p-8 text-center">
+                        <Search className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Start typing to search YouTube</p>
+                      </div>
+                    ) : searchResults.length === 0 && !isSearching ? (
+                      <div className="p-8 text-center">
+                        <p className="text-sm text-muted-foreground">No results found</p>
+                      </div>
+                    ) : isSearching ? (
+                      <div className="p-8 text-center">
+                        <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {searchResults.map((video) => (
+                          <div key={video.id} className="p-3 border rounded-lg hover:bg-accent transition-colors">
+                            <div className="flex gap-3">
+                              <img src={video.thumbnail} alt={video.title} className="w-32 h-20 object-cover rounded" />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm line-clamp-2 mb-1">{video.title}</h4>
+                                <p className="text-xs text-muted-foreground">{video.channel}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveFromSearch(video)}
+                                disabled={submitting}
+                              >
+                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>

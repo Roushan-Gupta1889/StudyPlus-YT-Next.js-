@@ -108,17 +108,29 @@ export async function DELETE(request: NextRequest) {
         const clearAll = searchParams.get("clearAll");
 
         if (clearAll === "true") {
-            // Remove all videos from library (soft delete)
-            await prisma.video.updateMany({
-                where: {
-                    userId: session.user.id,
-                    inLibrary: true,
-                },
-                data: {
-                    inLibrary: false,
-                },
-            });
-            return NextResponse.json({ message: "Library cleared" });
+            console.log("[VIDEOS_DELETE] Clearing all videos for user:", session.user.id);
+
+            try {
+                // Delete all videos in library (hard delete)
+                const result = await prisma.video.deleteMany({
+                    where: {
+                        userId: session.user.id,
+                        inLibrary: true,
+                    },
+                });
+
+                console.log("[VIDEOS_DELETE] Successfully deleted", result.count, "videos");
+                return NextResponse.json({
+                    message: "Library cleared",
+                    deletedCount: result.count
+                });
+            } catch (deleteError) {
+                console.error("[VIDEOS_DELETE] Error during deletion:", deleteError);
+                return NextResponse.json({
+                    error: "Failed to delete videos",
+                    details: deleteError instanceof Error ? deleteError.message : "Unknown error"
+                }, { status: 500 });
+            }
         }
 
         return NextResponse.json({ error: "Missing parameters" }, { status: 400 });

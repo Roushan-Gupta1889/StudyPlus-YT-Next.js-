@@ -145,7 +145,10 @@ export async function POST(request: NextRequest) {
             totalDuration: 0,
         }, { status: 201 });
     } catch (error) {
-        console.error("[PLAYLISTS_POST]", error);
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+        console.error("[PLAYLISTS_POST] Error details:", error);
+        return NextResponse.json({
+            error: "Internal error",
+            details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
     }
 }

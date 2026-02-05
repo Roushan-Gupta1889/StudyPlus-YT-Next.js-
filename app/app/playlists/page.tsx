@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Trash2, Play } from "lucide-react";
+import { Plus, Loader2, Trash2, Play, Search } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Playlist {
   id: string;
@@ -28,6 +29,11 @@ export default function PlaylistsPage() {
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [playlistName, setPlaylistName] = useState("");
   const [open, setOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"url" | "search">("url");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   // Fetch playlists
   useEffect(() => {
@@ -56,6 +62,60 @@ export default function PlaylistsPage() {
       toast.error("Failed to load playlists");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Search YouTube for playlists
+  useEffect(() => {
+    const searchYouTube = async () => {
+      if (!debouncedSearchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      try {
+        setIsSearching(true);
+        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(debouncedSearchQuery)}&type=playlist`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    searchYouTube();
+  }, [debouncedSearchQuery]);
+
+  const handleImportFromSearch = async (playlist: any) => {
+    try {
+      setSubmitting(true);
+      const response = await fetch("/api/playlists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: playlist.title,
+          description: playlist.description,
+          youtubeId: `https://www.youtube.com/playlist?list=${playlist.id}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to import playlist");
+      }
+
+      await fetchPlaylists();
+      setOpen(false);
+      toast.success("Playlist imported successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to import playlist");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -190,51 +250,126 @@ export default function PlaylistsPage() {
             </Button>
           )}
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setAddMode("url"); setSearchQuery(""); setSearchResults([]); } }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Playlist
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
               <DialogHeader>
                 <DialogTitle>Add YouTube Playlist</DialogTitle>
               </DialogHeader>
 
-              <form onSubmit={handleAddPlaylist} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Playlist URL
-                  </label>
-                  <Input
-                    placeholder="https://youtube.com/playlist?list=..."
-                    value={playlistUrl}
-                    onChange={(e) => setPlaylistUrl(e.target.value)}
-                    disabled={submitting}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Paste the full YouTube playlist URL
-                  </p>
-                </div>
+              {/* Tabs */}
+              <div className="flex bg-muted rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setAddMode("url")}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${addMode === "url" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  Paste URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddMode("search")}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${addMode === "search" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  Search YouTube
+                </button>
+              </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1 block">
-                    Playlist Name (Optional)
-                  </label>
-                  <Input
-                    placeholder="e.g., React Tutorial"
-                    value={playlistName}
-                    onChange={(e) => setPlaylistName(e.target.value)}
-                    disabled={submitting}
-                  />
-                </div>
+              {/* URL Mode */}
+              {addMode === "url" && (
+                <form onSubmit={handleAddPlaylist} className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">
+                      Playlist URL
+                    </label>
+                    <Input
+                      placeholder="https://youtube.com/playlist?list=..."
+                      value={playlistUrl}
+                      onChange={(e) => setPlaylistUrl(e.target.value)}
+                      disabled={submitting}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Paste the full YouTube playlist URL
+                    </p>
+                  </div>
 
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {submitting ? "Adding..." : "Add Playlist"}
-                </Button>
-              </form>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 block">
+                      Playlist Name (Optional)
+                    </label>
+                    <Input
+                      placeholder="e.g., React Tutorial"
+                      value={playlistName}
+                      onChange={(e) => setPlaylistName(e.target.value)}
+                      disabled={submitting}
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={submitting} className="w-full">
+                    {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {submitting ? "Adding..." : "Add Playlist"}
+                  </Button>
+                </form>
+              )}
+
+              {/* Search Mode */}
+              {addMode === "search" && (
+                <div className="flex flex-col flex-1 min-h-0">
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search YouTube playlists..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="flex-1 overflow-auto min-h-0">
+                    {!searchQuery ? (
+                      <div className="p-8 text-center">
+                        <Search className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Start typing to search YouTube</p>
+                      </div>
+                    ) : searchResults.length === 0 && !isSearching ? (
+                      <div className="p-8 text-center">
+                        <p className="text-sm text-muted-foreground">No results found</p>
+                      </div>
+                    ) : isSearching ? (
+                      <div className="p-8 text-center">
+                        <Loader2 className="w-8 h-8 mx-auto animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {searchResults.map((playlist) => (
+                          <div key={playlist.id} className="p-3 border rounded-lg hover:bg-accent transition-colors">
+                            <div className="flex gap-3">
+                              <img src={playlist.thumbnail} alt={playlist.title} className="w-32 h-20 object-cover rounded" />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm line-clamp-2 mb-1">{playlist.title}</h4>
+                                <p className="text-xs text-muted-foreground">{playlist.channel} • {playlist.itemCount} videos</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => handleImportFromSearch(playlist)}
+                                disabled={submitting}
+                              >
+                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Import"}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>
