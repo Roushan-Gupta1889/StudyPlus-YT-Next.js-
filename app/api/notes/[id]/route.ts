@@ -3,78 +3,37 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// PATCH /api/notes/[id] - Update note
-export async function PATCH(
-    request: NextRequest,
-    props: { params: Promise<{ id: string }> }
-) {
-    const params = await props.params;
-    try {
-        const session = await getServerSession(authOptions);
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body = await request.json();
-        const { content } = body;
-
-        const note = await prisma.note.findUnique({
-            where: {
-                id: params.id,
-            },
-        });
-
-        if (!note || note.userId !== session.user.id) {
-            return NextResponse.json({ error: "Not found" }, { status: 404 });
-        }
-
-        const updatedNote = await prisma.note.update({
-            where: {
-                id: params.id,
-            },
-            data: {
-                content,
-            },
-        });
-
-        return NextResponse.json(updatedNote);
-    } catch (error) {
-        console.error("[NOTE_PATCH]", error);
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
-    }
-}
-
-// DELETE /api/notes/[id] - Delete note
+// DELETE /api/notes/[id] - Delete a note
 export async function DELETE(
-    request: NextRequest,
-    props: { params: Promise<{ id: string }> }
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
 ) {
-    const params = await props.params;
     try {
         const session = await getServerSession(authOptions);
-
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const { id } = await params;
+
+        // Verify the note belongs to the user before deleting
         const note = await prisma.note.findUnique({
-            where: {
-                id: params.id,
-            },
+            where: { id },
         });
 
-        if (!note || note.userId !== session.user.id) {
-            return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!note) {
+            return NextResponse.json({ error: "Note not found" }, { status: 404 });
+        }
+
+        if (note.userId !== session.user.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         }
 
         await prisma.note.delete({
-            where: {
-                id: params.id,
-            },
+            where: { id },
         });
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ message: "Note deleted" });
     } catch (error) {
         console.error("[NOTE_DELETE]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });

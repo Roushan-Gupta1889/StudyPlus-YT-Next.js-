@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, use, useRef } from "react";
-import { ArrowLeft, Loader2, Check, X } from "lucide-react";
+import { ArrowLeft, Loader2, Check, X, Plus, Trash2, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 
@@ -32,6 +33,13 @@ interface PlaylistVideo {
   completed?: boolean;
 }
 
+interface Note {
+  id: string;
+  content: string;
+  timestamp: number;
+  createdAt: string;
+}
+
 export default function WatchPage({
   params,
 }: {
@@ -52,6 +60,13 @@ export default function WatchPage({
   const [isPlaying, setIsPlaying] = useState(true);
   const [playerRef, setPlayerRef] = useState<any>(null);
   const [watchSession, setWatchSession] = useState({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
+
+  // Notes state
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [currentTime, setCurrentTime] = useState(0);
+  const [activeTab, setActiveTab] = useState("description");
+  const [notesFetched, setNotesFetched] = useState(false);
   const watchSessionRef = useRef(watchSession);
 
   // Keep ref in sync with state
@@ -169,6 +184,86 @@ export default function WatchPage({
       const prevVideo = playlistVideos[currentIndex - 1];
       window.location.href = `/app/watch/${prevVideo.id}?playlistId=${playlistId}`;
     }
+  };
+
+  // Lazy load notes when Notes tab is opened
+  useEffect(() => {
+    if (activeTab === "notes" && !notesFetched && video) {
+      fetchNotes();
+      setNotesFetched(true);
+    }
+  }, [activeTab]);
+
+  const fetchNotes = async () => {
+    try {
+      const response = await fetch(`/api/videos/${id}/notes`);
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notes:", error);
+    }
+  };
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim()) {
+      toast.error("Please enter a note");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/videos/${id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: newNote,
+          timestamp: Math.floor(currentTime),
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to add note");
+
+      const note = await response.json();
+      setNotes([note, ...notes]);
+      setNewNote("");
+      toast.success("Note added");
+    } catch (error) {
+      toast.error("Failed to add note");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete note");
+
+      setNotes(notes.filter((n) => n.id !== noteId));
+      toast.success("Note deleted");
+    } catch (error) {
+      toast.error("Failed to delete note");
+    }
+  };
+
+  const seekToTimestamp = (timestamp: number) => {
+    if (playerRef && playerRef.seekTo) {
+      playerRef.seekTo(timestamp, "seconds");
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Sync watch history every 30 seconds
@@ -300,7 +395,12 @@ export default function WatchPage({
                   height="100%"
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
-                  onProgress={() => handleProgress()}
+                  onProgress={(state: any) => {
+                    if (state?.playedSeconds !== undefined) {
+                      setCurrentTime(state.playedSeconds);
+                    }
+                    handleProgress();
+                  }}
                   onEnded={() => {
                     // Mark as complete when video ends
                     if (!completed) handleMarkComplete();
@@ -340,9 +440,13 @@ export default function WatchPage({
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="description" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-5 mb-6">
                 <TabsTrigger value="description">Description</TabsTrigger>
+                <TabsTrigger value="notes">
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Notes
+                </TabsTrigger>
                 <TabsTrigger value="comments">Comments</TabsTrigger>
                 <TabsTrigger value="attachments">Attachments</TabsTrigger>
                 <TabsTrigger value="ai">AI Assistant</TabsTrigger>
@@ -354,6 +458,67 @@ export default function WatchPage({
                   <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
                     {video.description}
                   </p>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="notes" className="space-y-4">
+                <Card className="p-6">
+                  <h2 className="text-lg font-semibold text-foreground mb-4">My Notes</h2>
+
+                  {/* Add Note Form */}
+                  <form onSubmit={handleAddNote} className="mb-6 space-y-3">
+                    <Textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Add a note about this video..."
+                      className="min-h-[100px] resize-none"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Note will be saved at {formatTime(currentTime)}
+                      </span>
+                      <Button type="submit" size="sm">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Note
+                      </Button>
+                    </div>
+                  </form>
+
+                  {/* Notes List */}
+                  <div className="space-y-3">
+                    {notes.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <BookOpen className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>No notes yet. Start taking notes while watching!</p>
+                      </div>
+                    ) : (
+                      notes.map((note) => (
+                        <Card key={note.id} className="p-4 hover:bg-accent/50 transition-colors">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground mb-2 whitespace-pre-wrap">
+                                {note.content}
+                              </p>
+                              <button
+                                onClick={() => seekToTimestamp(note.timestamp)}
+                                className="text-xs text-primary hover:underline font-medium"
+                              >
+                                ⏱ {formatTime(note.timestamp)}
+                              </button>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteNote(note.id)}
+                              className="flex-shrink-0 h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </Card>
+                      ))
+                    )}
+                  </div>
                 </Card>
               </TabsContent>
 

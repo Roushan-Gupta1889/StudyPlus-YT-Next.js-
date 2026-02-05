@@ -26,9 +26,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/app/dashboard" },
-  { icon: Folder, label: "Library", href: "/app/watch" },
-
-  { icon: PlayCircle, label: "Videos", href: "/app/videos" },
+  { icon: Folder, label: "Library", href: "/app/videos" },
   { icon: ListVideo, label: "Playlists", href: "/app/playlists" },
   { icon: FileText, label: "Notes", href: "/app/notes" },
   { icon: BarChart3, label: "Analytics", href: "/app/analytics" },
