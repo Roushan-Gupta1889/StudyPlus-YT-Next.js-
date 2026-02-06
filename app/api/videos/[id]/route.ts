@@ -58,14 +58,21 @@ export async function PATCH(
             return NextResponse.json({ error: "Not found" }, { status: 404 });
         }
 
+        // Build update data
+        const updateData: any = {};
+        if (progress !== undefined) updateData.progress = progress;
+        if (completed !== undefined) updateData.completed = completed;
+
+        // Only update if there's something to update
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json(video);
+        }
+
         const updatedVideo = await prisma.video.update({
             where: {
                 id,
             },
-            data: {
-                progress,
-                completed,
-            },
+            data: updateData,
         });
 
         return NextResponse.json(updatedVideo);

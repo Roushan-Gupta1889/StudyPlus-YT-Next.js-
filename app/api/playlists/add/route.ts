@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeName } from "@/lib/sanitize";
+import { createErrorResponse, ErrorCode, handleYouTubeError, handleDatabaseError } from "@/lib/errors";
+import { rateLimit } from "@/lib/rate-limit";
+
+// ✅ FIX 1: Rate limiter - 3 playlists per minute (heavy operation)
+const limiter = rateLimit({
+  interval: 60 * 1000,
+  uniqueTokenPerInterval: 500,
+});
+
+const MAX_VIDEOS_PER_PLAYLIST = 50;
 
 // Extract YouTube playlist ID from various YouTube URL formats
 function extractPlaylistId(url: string): string | null {
@@ -18,7 +29,7 @@ function extractPlaylistId(url: string): string | null {
   return null;
 }
 
-// Fetch playlist videos from YouTube API
+// ✅ FIX 2: Use handleYouTubeError properly
 async function fetchPlaylistVideos(playlistId: string) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -35,7 +46,8 @@ async function fetchPlaylistVideos(playlistId: string) {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to fetch playlist");
+      const errorData = await response.json().catch(() => ({}));
+      throw handleYouTubeError({ response: { status: response.status, data: errorData } });
     }
 
     const data: any = await response.json();
@@ -48,7 +60,7 @@ async function fetchPlaylistVideos(playlistId: string) {
         youtubeId: item.contentDetails.videoId,
         title: item.snippet.title,
         description: item.snippet.description,
-        thumbnail: item.snippet.thumbnails.high.url,
+        thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || "",
         channel: item.snippet.channelTitle,
       });
     }
@@ -65,14 +77,15 @@ function parseDuration(duration: string): number {
   const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
   if (!match) return 0;
 
-  const hours = (parseInt(match[1]) || 0) * 3600;
-  const minutes = (parseInt(match[2]) || 0) * 60;
-  const seconds = parseInt(match[3]) || 0;
+  // Explicitly strip unit suffixes for clarity and safety
+  const hours = match[1] ? parseInt(match[1].replace("H", ""), 10) * 3600 : 0;
+  const minutes = match[2] ? parseInt(match[2].replace("M", ""), 10) * 60 : 0;
+  const seconds = match[3] ? parseInt(match[3].replace("S", ""), 10) : 0;
 
   return hours + minutes + seconds;
 }
 
-// Fetch video details including duration
+// ✅ FIX 2: Use handleYouTubeError properly
 async function fetchVideoDetails(videoIds: string[]) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -89,8 +102,8 @@ async function fetchVideoDetails(videoIds: string[]) {
     );
 
     if (!response.ok) {
-      console.error("Failed to fetch video details");
-      continue;
+      const errorData = await response.json().catch(() => ({}));
+      throw handleYouTubeError({ response: { status: response.status, data: errorData } });
     }
 
     const data: any = await response.json();
@@ -108,121 +121,181 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+    if (!session?.user?.id) {
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.UNAUTHORIZED,
+        "Unauthorized",
+        401
       );
+      return NextResponse.json(response, { status: statusCode });
+    }
+
+    // ✅ FIX 1: Apply rate limiting (3 playlists per minute - heavy operation)
+    try {
+      await limiter.check(3, session.user.id);
+    } catch {
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.RATE_LIMIT_EXCEEDED,
+        "Too many playlist imports. Please wait a minute.",
+        429
+      );
+      return NextResponse.json(response, { status: statusCode });
     }
 
     const { playlistUrl, playlistName } = await req.json();
 
     if (!playlistUrl) {
-      return NextResponse.json(
-        { error: "Playlist URL is required" },
-        { status: 400 }
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.MISSING_FIELD,
+        "Playlist URL is required",
+        400
       );
+      return NextResponse.json(response, { status: statusCode });
     }
 
     // Extract playlist ID
     const playlistId = extractPlaylistId(playlistUrl);
     if (!playlistId) {
-      return NextResponse.json(
-        { error: "Invalid YouTube playlist URL" },
-        { status: 400 }
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "Invalid YouTube playlist URL",
+        400
       );
+      return NextResponse.json(response, { status: statusCode });
     }
 
     // Get user
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: session.user.id },
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.NOT_FOUND,
+        "User not found",
+        404
       );
+      return NextResponse.json(response, { status: statusCode });
     }
 
     // Fetch playlist videos from YouTube
     const playlistVideos = await fetchPlaylistVideos(playlistId);
 
     if (playlistVideos.length === 0) {
-      return NextResponse.json(
-        { error: "Playlist is empty or not accessible" },
-        { status: 400 }
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.NOT_FOUND,
+        "Playlist is empty or not accessible",
+        400
       );
+      return NextResponse.json(response, { status: statusCode });
     }
 
     // Fetch video durations
     const videoIds = playlistVideos.map((v) => v.youtubeId);
     const videoDetails = await fetchVideoDetails(videoIds);
 
-    // Create playlist in database
-    const playlist = await prisma.playlist.create({
-      data: {
-        userId: user.id,
-        name: playlistName || `Playlist - ${new Date().toLocaleDateString()}`,
-        description: `Imported from YouTube - ${playlistId}`,
-      },
-    });
+    // ✅ FIX 3: Check for truncation BEFORE processing
+    const totalVideos = playlistVideos.length;
+    const willTruncate = totalVideos > MAX_VIDEOS_PER_PLAYLIST;
+    const videosToImport = playlistVideos.slice(0, MAX_VIDEOS_PER_PLAYLIST);
 
-    // Add videos to playlist (limit to 50)
-    const videoRecordIds = [];
-    for (let i = 0; i < Math.min(playlistVideos.length, 50); i++) {
-      const videoData = playlistVideos[i];
-      const duration = videoDetails[videoData.youtubeId] || 0;
+    // ✅ FIX 5: Sanitize playlist name
+    const safeName = playlistName
+      ? sanitizeName(playlistName)
+      : `Playlist - ${new Date().toLocaleDateString()}`;
 
-      // Check if video already exists for this user
-      let video = await prisma.video.findFirst({
-        where: {
+    // ✅ FIX 4: Wrap everything in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create playlist in database
+      const playlist = await tx.playlist.create({
+        data: {
           userId: user.id,
-          youtubeId: videoData.youtubeId,
+          name: safeName,
+          description: `Imported from YouTube - ${playlistId}`,
         },
       });
 
-      // If not, create it
-      if (!video) {
-        video = await prisma.video.create({
-          data: {
+      // Add videos to playlist
+      const videoRecordIds: string[] = [];
+
+      for (let i = 0; i < videosToImport.length; i++) {
+        const videoData = videosToImport[i];
+        const duration = videoDetails[videoData.youtubeId] || 0;
+
+        // Check if video already exists for this user
+        let video = await tx.video.findFirst({
+          where: {
             userId: user.id,
             youtubeId: videoData.youtubeId,
-            title: videoData.title,
-            description: videoData.description,
-            thumbnail: videoData.thumbnail,
-            channel: videoData.channel,
-            duration: duration,
+          },
+        });
+
+        // If not, create it
+        if (!video) {
+          video = await tx.video.create({
+            data: {
+              userId: user.id,
+              youtubeId: videoData.youtubeId,
+              title: videoData.title,
+              description: videoData.description,
+              thumbnail: videoData.thumbnail,
+              channel: videoData.channel,
+              duration: duration,
+            },
+          });
+        }
+
+        videoRecordIds.push(video.id);
+      }
+
+      // Create playlist video relationships
+      for (let position = 0; position < videoRecordIds.length; position++) {
+        await tx.playlistVideo.create({
+          data: {
+            playlistId: playlist.id,
+            videoId: videoRecordIds[position],
+            position: position,
           },
         });
       }
 
-      videoRecordIds.push(video.id);
-    }
-
-    // Create playlist video relationships
-    for (let position = 0; position < videoRecordIds.length; position++) {
-      await prisma.playlistVideo.create({
-        data: {
-          playlistId: playlist.id,
-          videoId: videoRecordIds[position],
-          position: position,
-        },
-      });
-    }
-
-    return NextResponse.json(
-      {
+      return {
         playlist,
         videosAdded: videoRecordIds.length,
+      };
+    });
+
+    // ✅ FIX 3: Return truncation warning in response
+    return NextResponse.json(
+      {
+        ...result,
+        truncated: willTruncate,
+        totalVideosInPlaylist: totalVideos,
+        ...(willTruncate && {
+          warning: `Playlist was truncated from ${totalVideos} to ${MAX_VIDEOS_PER_PLAYLIST} videos`,
+        }),
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error adding playlist:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Something went wrong" },
-      { status: 500 }
+
+    // Handle database errors FIRST (Prisma errors also have error.code)
+    if (error.code?.startsWith("P")) {
+      const appError = handleDatabaseError(error);
+      return NextResponse.json(appError.toJSON(), { status: appError.statusCode });
+    }
+
+    // Handle known application errors (including YouTube errors)
+    if (error.code && error.toJSON) {
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
+
+    const { response, statusCode } = createErrorResponse(
+      ErrorCode.INTERNAL_ERROR,
+      error.message || "Failed to import playlist",
+      500
     );
+    return NextResponse.json(response, { status: statusCode });
   }
 }

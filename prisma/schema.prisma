@@ -54,6 +54,9 @@ model Video {
 
   @@unique([userId, youtubeId])
   @@index([userId])
+  @@index([userId, completed])
+  @@index([userId, inLibrary])
+  @@index([userId, progress])
   @@map("videos")
 }
 
@@ -71,6 +74,7 @@ model Note {
 
   @@index([userId])
   @@index([videoId])
+  @@index([userId, videoId, createdAt])
   @@map("notes")
 }
 
@@ -117,6 +121,7 @@ model WatchHistory {
   @@unique([userId, videoId])
   @@index([userId])
   @@index([videoId])
+  @@index([userId, watchedAt])
   @@map("watch_history")
 }
 

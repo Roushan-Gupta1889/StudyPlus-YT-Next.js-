@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
         }
 
         let newPlaylist;
+        let importedVideoCount = 0;
+        let wasTruncated = false;
 
         if (youtubeId) {
             // Extract playlist ID from URL if needed
@@ -75,8 +77,11 @@ export async function POST(request: NextRequest) {
 
             // Import all videos from YouTube
             console.log(`[PLAYLISTS] Starting import for playlist ${playlistId}`);
-            const videos = await getPlaylistVideos(playlistId);
-            console.log(`[PLAYLISTS] Fetched ${videos.length} videos from YouTube`);
+            const { videos, truncated, totalFetched } = await getPlaylistVideos(playlistId);
+            console.log(`[PLAYLISTS] Fetched ${totalFetched} videos from YouTube (truncated: ${truncated})`);
+
+            importedVideoCount = videos.length;
+            wasTruncated = truncated;
 
             if (videos.length === 0) {
                 return NextResponse.json({ error: "Could not fetch playlist videos" }, { status: 400 });
@@ -137,12 +142,13 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Return playlist with zero stats (initially) or calculated stats
+        // Return playlist with actual stats
         return NextResponse.json({
             ...newPlaylist,
-            totalVideos: youtubeId ? 50 : 0, // Approx
+            totalVideos: importedVideoCount,
             completedVideos: 0,
             totalDuration: 0,
+            ...(wasTruncated && { warning: "Playlist was truncated due to size limit" }),
         }, { status: 201 });
     } catch (error) {
         console.error("[PLAYLISTS_POST] Error details:", error);

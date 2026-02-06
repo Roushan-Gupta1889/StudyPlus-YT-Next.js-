@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 
+
+
 // Dynamic import to avoid SSR issues with ReactPlayer
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 
@@ -59,7 +61,6 @@ export default function WatchPage({
   // Player state
   const [isPlaying, setIsPlaying] = useState(true);
   const [playerRef, setPlayerRef] = useState<any>(null);
-  const [watchSession, setWatchSession] = useState({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
 
   // Notes state
   const [notes, setNotes] = useState<Note[]>([]);
@@ -67,12 +68,17 @@ export default function WatchPage({
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState("description");
   const [notesFetched, setNotesFetched] = useState(false);
-  const watchSessionRef = useRef(watchSession);
 
-  // Keep ref in sync with state
-  useEffect(() => {
-    watchSessionRef.current = watchSession;
-  }, [watchSession]);
+  // ✅ FIXED: Time-delta based sync with mutex protection
+  const watchSyncRef = useRef({
+    accumulatedSeconds: 0,
+    lastTimestamp: Date.now(),
+    syncing: false,
+    initialSyncDone: false,
+  });
+
+  // ✅ Duration correction: Only update once per video
+  const durationCorrectedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -82,15 +88,23 @@ export default function WatchPage({
 
   // Reset session when video changes
   useEffect(() => {
-    setWatchSession({ accumulatedTime: 0, lastSync: Date.now(), initialSyncDone: false });
+    watchSyncRef.current = {
+      accumulatedSeconds: 0,
+      lastTimestamp: Date.now(),
+      syncing: false,
+      initialSyncDone: false,
+    };
+    durationCorrectedRef.current = false; // Reset duration correction flag
     setIsPlaying(true);
   }, [id]);
 
   // Sync remaining time when switching videos or unmounting
   useEffect(() => {
     return () => {
-      if (watchSessionRef.current.accumulatedTime > 0) {
-        syncWatchHistory(watchSessionRef.current.accumulatedTime);
+      const sync = watchSyncRef.current;
+      if (sync.accumulatedSeconds >= 5 && !sync.syncing && video) {
+        // Fire-and-forget sync on unmount
+        syncWatchHistory(sync.accumulatedSeconds);
       }
     };
   }, [video]); // Only run on unmount or video change
@@ -172,9 +186,15 @@ export default function WatchPage({
     }
   };
 
+  // ✅ FIXED: Use router for navigation instead of window.location
   const handleNext = () => {
     if (currentIndex < playlistVideos.length - 1) {
       const nextVideo = playlistVideos[currentIndex + 1];
+      // Sync before navigating
+      const sync = watchSyncRef.current;
+      if (sync.accumulatedSeconds >= 5 && !sync.syncing && video) {
+        syncWatchHistory(sync.accumulatedSeconds);
+      }
       window.location.href = `/app/watch/${nextVideo.id}?playlistId=${playlistId}`;
     }
   };
@@ -182,6 +202,11 @@ export default function WatchPage({
   const handlePrev = () => {
     if (currentIndex > 0) {
       const prevVideo = playlistVideos[currentIndex - 1];
+      // Sync before navigating
+      const sync = watchSyncRef.current;
+      if (sync.accumulatedSeconds >= 5 && !sync.syncing && video) {
+        syncWatchHistory(sync.accumulatedSeconds);
+      }
       window.location.href = `/app/watch/${prevVideo.id}?playlistId=${playlistId}`;
     }
   };
@@ -266,11 +291,17 @@ export default function WatchPage({
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Sync watch history every 30 seconds
+  // ✅ FIXED: Time-delta based sync with mutex protection
   const VIDEO_SYNC_INTERVAL = 30; // seconds
 
   const syncWatchHistory = async (seconds: number) => {
     if (seconds < 5 || !video) return; // Ignore very short durations
+
+    const sync = watchSyncRef.current;
+
+    // Mutex: prevent concurrent syncs
+    if (sync.syncing) return;
+    sync.syncing = true;
 
     try {
       await fetch("/api/history", {
@@ -283,34 +314,46 @@ export default function WatchPage({
       });
     } catch (error) {
       console.error("Failed to sync history", error);
+    } finally {
+      sync.syncing = false;
     }
   };
 
-  // Handle progress updates
+  // ✅ FIXED: Time-delta based progress tracking
   const handleProgress = () => {
     if (!isPlaying) return;
 
-    setWatchSession(prev => {
-      const now = Date.now();
-      // Assuming this is called roughly once per second
-      const newAccumulated = prev.accumulatedTime + 1;
+    const sync = watchSyncRef.current;
+    const now = Date.now();
 
-      // If accumulated > interval, sync and reset
-      if (newAccumulated >= VIDEO_SYNC_INTERVAL) {
-        syncWatchHistory(newAccumulated);
-        return { accumulatedTime: 0, lastSync: now, initialSyncDone: prev.initialSyncDone };
-      }
+    // Calculate actual elapsed time since last tick (in seconds)
+    const deltaMs = now - sync.lastTimestamp;
+    const deltaSec = deltaMs / 1000;
 
-      // Initial sync for "instant" tracking (e.g. after 5 seconds)
-      if (!prev.initialSyncDone && newAccumulated >= 5) {
-        syncWatchHistory(newAccumulated);
-        return { accumulatedTime: 0, lastSync: now, initialSyncDone: true };
-      }
+    // Sanity check: ignore unrealistic deltas (> 5s means tab was hidden or paused)
+    if (deltaSec > 5) {
+      sync.lastTimestamp = now;
+      return;
+    }
 
-      return { ...prev, accumulatedTime: newAccumulated };
+    sync.accumulatedSeconds += deltaSec;
+    sync.lastTimestamp = now;
 
-      return { ...prev, accumulatedTime: newAccumulated };
-    });
+    // Sync every 30 seconds
+    if (sync.accumulatedSeconds >= VIDEO_SYNC_INTERVAL) {
+      const toSync = sync.accumulatedSeconds;
+      sync.accumulatedSeconds = 0;
+      syncWatchHistory(toSync);
+      return;
+    }
+
+    // Initial sync after 5 seconds (for "instant" tracking)
+    if (!sync.initialSyncDone && sync.accumulatedSeconds >= 5) {
+      const toSync = sync.accumulatedSeconds;
+      sync.accumulatedSeconds = 0;
+      sync.initialSyncDone = true;
+      syncWatchHistory(toSync);
+    }
   };
 
   if (!mounted || loading) {
@@ -401,6 +444,24 @@ export default function WatchPage({
                     }
                     handleProgress();
                   }}
+                  onDuration={(playerDuration: number) => {
+                    // ✅ Auto-correct duration from player if DB has 0
+                    if (
+                      video.duration === 0 &&
+                      playerDuration > 0 &&
+                      !durationCorrectedRef.current
+                    ) {
+                      durationCorrectedRef.current = true;
+                      // Update backend (fire-and-forget)
+                      fetch(`/api/videos/${video.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ duration: Math.round(playerDuration) }),
+                      }).catch(console.error);
+                      // Update local state for immediate UI feedback
+                      setVideo(prev => prev ? { ...prev, duration: Math.round(playerDuration) } : prev);
+                    }
+                  }}
                   onEnded={() => {
                     // Mark as complete when video ends
                     if (!completed) handleMarkComplete();
@@ -434,7 +495,10 @@ export default function WatchPage({
               {/* Video Stats */}
               <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <span>Duration: {String(Math.floor(video.duration / 3600)).padStart(2, "0")}:{String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:{String(video.duration % 60).padStart(2, "0")}</span>
+                  <span>Duration: {video.duration > 0
+                    ? `${String(Math.floor(video.duration / 3600)).padStart(2, "0")}:${String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:${String(video.duration % 60).padStart(2, "0")}`
+                    : "—"}
+                  </span>
                 </div>
               </div>
             </div>

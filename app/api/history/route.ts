@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createErrorResponse, ErrorCode, handleDatabaseError } from "@/lib/errors";
+import { rateLimit } from "@/lib/rate-limit";
+
+// Rate limiter: 30 requests per minute per user
+const limiter = rateLimit({
+    interval: 60 * 1000,
+    uniqueTokenPerInterval: 500,
+});
 
 // ==============================
 // GET /api/history
@@ -12,7 +20,12 @@ export async function GET(request: NextRequest) {
         const session = await getServerSession(authOptions);
 
         if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.UNAUTHORIZED,
+                "Unauthorized",
+                401
+            );
+            return NextResponse.json(response, { status: statusCode });
         }
 
         const history = await prisma.watchHistory.findMany({
@@ -31,7 +44,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(history);
     } catch (error) {
         console.error("[HISTORY_GET]", error);
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+        const { response, statusCode } = createErrorResponse(
+            ErrorCode.INTERNAL_ERROR,
+            "Failed to fetch watch history",
+            500
+        );
+        return NextResponse.json(response, { status: statusCode });
     }
 }
 
@@ -44,24 +62,45 @@ export async function POST(request: NextRequest) {
         const session = await getServerSession(authOptions);
 
         if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.UNAUTHORIZED,
+                "Unauthorized",
+                401
+            );
+            return NextResponse.json(response, { status: statusCode });
+        }
+
+        // Rate limiting - 30 req/min
+        try {
+            await limiter.check(30, session.user.id);
+        } catch {
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.RATE_LIMIT_EXCEEDED,
+                "Too many requests. Please slow down.",
+                429
+            );
+            return NextResponse.json(response, { status: statusCode });
         }
 
         const body = await request.json();
         let { videoId, watchTime } = body;
 
         if (!videoId || watchTime === undefined) {
-            return NextResponse.json(
-                { error: "Missing required fields" },
-                { status: 400 }
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.MISSING_FIELD,
+                "Missing required fields: videoId and watchTime",
+                400
             );
+            return NextResponse.json(response, { status: statusCode });
         }
 
         if (watchTime <= 0) {
-            return NextResponse.json(
-                { error: "Watch time must be positive" },
-                { status: 400 }
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.INVALID_INPUT,
+                "Watch time must be positive",
+                400
             );
+            return NextResponse.json(response, { status: statusCode });
         }
 
         // Cap watch time (12 hours safety)
@@ -74,10 +113,12 @@ export async function POST(request: NextRequest) {
         });
 
         if (!video || video.userId !== session.user.id) {
-            return NextResponse.json(
-                { error: "Video not found" },
-                { status: 404 }
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.NOT_FOUND,
+                "Video not found",
+                404
             );
+            return NextResponse.json(response, { status: statusCode });
         }
 
         const result = await prisma.$transaction(async (tx) => {
@@ -102,7 +143,7 @@ export async function POST(request: NextRequest) {
                 },
             });
 
-            // Calculate progress
+            // Calculate progress with division-by-zero protection
             let progress = 0;
             if (video.duration && video.duration > 0) {
                 progress = Math.min(
@@ -157,14 +198,32 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(result, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error("[HISTORY_POST]", error);
-        return NextResponse.json({ error: "Internal error" }, { status: 500 });
+
+        // Handle database errors FIRST (Prisma errors also have error.code)
+        if (error.code?.startsWith('P')) {
+            const appError = handleDatabaseError(error);
+            return NextResponse.json(appError.toJSON(), { status: appError.statusCode });
+        }
+
+        // Handle known application errors
+        if (error.code && error.toJSON) {
+            return NextResponse.json(error.toJSON(), { status: error.statusCode });
+        }
+
+        const { response, statusCode } = createErrorResponse(
+            ErrorCode.INTERNAL_ERROR,
+            "Failed to update watch history",
+            500
+        );
+        return NextResponse.json(response, { status: statusCode });
     }
 }
 
 // ==============================
 // DELETE /api/history
+// Delete watch history
 // ==============================
 export async function DELETE(request: NextRequest) {
     try {
@@ -175,49 +234,28 @@ export async function DELETE(request: NextRequest) {
         }
 
         const { searchParams } = new URL(request.url);
-        const id = searchParams.get("id");
-        const clearAll = searchParams.get("clearAll");
+        const videoId = searchParams.get("videoId");
 
-        if (clearAll === "true") {
+        if (videoId) {
+            // Delete specific history entry
+            await prisma.watchHistory.delete({
+                where: {
+                    userId_videoId: {
+                        userId: session.user.id,
+                        videoId,
+                    },
+                },
+            });
+        } else {
+            // Clear all history
             await prisma.watchHistory.deleteMany({
                 where: {
                     userId: session.user.id,
                 },
             });
-
-            return NextResponse.json({ message: "History cleared" });
         }
 
-        if (id) {
-            const historyItem = await prisma.watchHistory.findUnique({
-                where: { id },
-            });
-
-            if (!historyItem) {
-                return NextResponse.json(
-                    { error: "Item not found" },
-                    { status: 404 }
-                );
-            }
-
-            if (historyItem.userId !== session.user.id) {
-                return NextResponse.json(
-                    { error: "Unauthorized" },
-                    { status: 403 }
-                );
-            }
-
-            await prisma.watchHistory.delete({
-                where: { id },
-            });
-
-            return NextResponse.json({ message: "Item deleted" });
-        }
-
-        return NextResponse.json(
-            { error: "Missing parameters" },
-            { status: 400 }
-        );
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error("[HISTORY_DELETE]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
