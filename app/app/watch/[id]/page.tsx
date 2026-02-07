@@ -442,16 +442,16 @@ export default function WatchPage({
                     if (state?.playedSeconds !== undefined) {
                       setCurrentTime(state.playedSeconds);
                     }
-                    handleProgress();
-                  }}
-                  onDuration={(playerDuration: number) => {
+
                     // ✅ Auto-correct duration from player if DB has 0
                     if (
+                      state?.duration &&
                       video.duration === 0 &&
-                      playerDuration > 0 &&
+                      state.duration > 0 &&
                       !durationCorrectedRef.current
                     ) {
                       durationCorrectedRef.current = true;
+                      const playerDuration = state.duration;
                       // Update backend (fire-and-forget)
                       fetch(`/api/videos/${video.id}`, {
                         method: "PATCH",
@@ -461,6 +461,8 @@ export default function WatchPage({
                       // Update local state for immediate UI feedback
                       setVideo(prev => prev ? { ...prev, duration: Math.round(playerDuration) } : prev);
                     }
+
+                    handleProgress();
                   }}
                   onEnded={() => {
                     // Mark as complete when video ends

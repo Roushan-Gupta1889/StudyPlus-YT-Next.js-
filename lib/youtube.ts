@@ -292,7 +292,7 @@ export async function getPlaylistVideos(
     const safeMaxPages = Math.min(maxPages, MAX_PLAYLIST_PAGES);
 
     do {
-        const playlistData = await youtubeApiFetch<any>("playlistItems", {
+        const playlistData: any = await youtubeApiFetch<any>("playlistItems", {
             part: "snippet,contentDetails",
             playlistId: playlistId,
             maxResults: 50,
