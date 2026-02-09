@@ -39,17 +39,28 @@ export default function VideosPage() {
   }, []);
 
   const fetchVideos = async () => {
-    try {
-      const response = await fetch("/api/videos/list");
-      if (!response.ok) throw new Error("Failed to fetch videos");
-      const data = await response.json();
-      setVideos(data);
-    } catch (error) {
-      toast.error("Failed to load videos");
-    } finally {
-      setLoading(false);
+  try {
+    const response = await fetch("/api/videos/list");
+
+    const data = await response.json(); // ✅ parse FIRST
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        data?.message ||
+        "Failed to load videos"
+      );
     }
-  };
+
+    setVideos(data);
+  } catch (error) {
+    toast.error(
+      error instanceof Error ? error.message : "Failed to load videos"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Search YouTube
   useEffect(() => {
@@ -94,9 +105,13 @@ export default function VideosPage() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to add video");
-      }
+     if (!response.ok) {
+  throw new Error(
+    data?.error?.message ||
+    data?.message ||
+    "Failed to add video"
+  );
+}
 
       setVideos([data, ...videos]);
       setOpen(false);
@@ -126,8 +141,12 @@ export default function VideosPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to add video");
-      }
+  throw new Error(
+    data?.error?.message ||
+    data?.message ||
+    "Failed to add video"
+  );
+}
 
       setVideos([data, ...videos]);
       setVideoUrl("");

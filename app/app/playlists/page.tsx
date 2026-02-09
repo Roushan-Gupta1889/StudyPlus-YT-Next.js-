@@ -143,43 +143,53 @@ export default function PlaylistsPage() {
     }
   };
 
-  const handleAddPlaylist = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!playlistUrl.trim()) {
-      toast.error("Please enter a playlist URL");
-      return;
+ const handleAddPlaylist = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!playlistUrl.trim()) {
+    toast.error("Please enter a playlist URL");
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    const response = await fetch("/api/playlists/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        playlistUrl,
+        playlistName: playlistName || undefined,
+      }),
+    });
+
+    const data = await response.json(); // ✅ PARSE FIRST
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        data?.message ||
+        "Failed to add playlist"
+      );
     }
 
-    setSubmitting(true);
-    try {
-      const response = await fetch("/api/playlists/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playlistUrl,
-          playlistName: playlistName || undefined,
-        }),
-      });
+    await fetchPlaylists();
 
-      const data = await response.json();
+    setPlaylistUrl("");
+    setPlaylistName("");
+    setOpen(false);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to add playlist");
-      }
+    toast.success(`Playlist added with ${data.videosAdded} videos!`);
+  } catch (error) {
+    toast.error(
+      error instanceof Error ? error.message : "Failed to add playlist"
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
-      // Add playlist stats for immediate display
-      await fetchPlaylists();
 
-      setPlaylistUrl("");
-      setPlaylistName("");
-      setOpen(false);
-      toast.success(`Playlist added with ${data.videosAdded} videos!`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to add playlist");
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleDeletePlaylist = async (playlistId: string) => {
     if (!confirm("Are you sure? All videos in this playlist will be removed.")) return;
