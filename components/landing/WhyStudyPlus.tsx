@@ -7,7 +7,7 @@ const benefits = [
   {
     icon: Play,
     title: "Seamless Playback Experience",
-    description: "Enjoy uninterrupted video playback without any distractions. Your learning flow stays intact from start to finish.",
+    description: "Enjoy focused video playback without any distractions. Your learning flow stays intact from start to finish.",
   },
   {
     icon: Layout,
@@ -21,7 +21,7 @@ const benefits = [
   },
   {
     icon: Shield,
-    title: "No Popups, No Redirects",
+    title: "Pure Learning Environment",
     description: "Stay focused with a streamlined experience. No unexpected interruptions or distracting links.",
   },
   {

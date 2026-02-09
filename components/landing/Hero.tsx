@@ -53,7 +53,7 @@ export function Hero() {
 
           <p className="text-sm text-muted-foreground mt-6 animate-fade-in flex items-center justify-center gap-2" style={{ animationDelay: "0.3s" }}>
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-            No popups, no redirects · Seamless playback experience
+            No distractions, no clutter · Seamless playback experience
           </p>
         </div>
 

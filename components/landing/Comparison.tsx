@@ -7,13 +7,13 @@ const youtubeProblems = [
   "Endless recommendations",
   "Autoplay distractions",
   "Comments that derail focus",
-  "Ads interrupting flow",
+  "Clutter interrupting flow",
   "No progress tracking",
 ];
 
 const studyPlusBenefits = [
   "Minimal UI for focused watching",
-  "No popups, no redirects",
+  "Focus-first interface",
   "Study-friendly YouTube player",
   "All videos in one place",
   "Seamless playback experience",

@@ -7,7 +7,7 @@ const features = [
   {
     icon: Monitor,
     title: "Minimal UI Player",
-    description: "A study-friendly YouTube player designed for focused watching. No popups, no redirects.",
+    description: "A study-friendly YouTube player designed for focused watching. No distractions, just learning.",
   },
   {
     icon: ListVideo,

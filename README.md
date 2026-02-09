@@ -2,7 +2,7 @@
 
 > Transform YouTube into a focused learning environment with progress tracking, notes, and distraction-free playback.
 
-A modern, premium SaaS platform designed for serious learners. Watch educational videos without ads, recommendations, or endless scrolling. Perfect for IITM students and lifelong learners.
+A modern, premium SaaS platform designed for serious learners. Watch educational videos without distractions, recommendations, or endless scrolling. Perfect for IITM students and lifelong learners.
 
 ---
 
