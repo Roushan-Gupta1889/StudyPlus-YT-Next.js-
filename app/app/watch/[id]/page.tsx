@@ -8,12 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import dynamic from "next/dynamic";
-
-
-
-// Dynamic import to avoid SSR issues with ReactPlayer
-const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
+import YouTubePlayer, { YouTubePlayerRef, YT_PLAYER_STATE, PlayerState } from "@/components/YouTubePlayer";
 
 interface Video {
   id: string;
@@ -24,6 +19,10 @@ interface Video {
   channel: string;
   duration: number;
   completed?: boolean;
+  // Phase 1: Player state fields
+  currentTime: number;
+  playbackRate: number;
+  muted: boolean;
 }
 
 interface PlaylistVideo {
@@ -58,9 +57,8 @@ export default function WatchPage({
   const [completedCount, setCompletedCount] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(true);
 
-  // Player state
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [playerRef, setPlayerRef] = useState<any>(null);
+  // Player ref (Phase 1: YouTube IFrame API)
+  const playerRef = useRef<YouTubePlayerRef>(null);
 
   // Notes state
   const [notes, setNotes] = useState<Note[]>([]);
@@ -95,7 +93,6 @@ export default function WatchPage({
       initialSyncDone: false,
     };
     durationCorrectedRef.current = false; // Reset duration correction flag
-    setIsPlaying(true);
   }, [id]);
 
   // Sync remaining time when switching videos or unmounting
@@ -275,8 +272,8 @@ export default function WatchPage({
   };
 
   const seekToTimestamp = (timestamp: number) => {
-    if (playerRef && playerRef.seekTo) {
-      playerRef.seekTo(timestamp, "seconds");
+    if (playerRef.current) {
+      playerRef.current.seekTo(timestamp);
     }
   };
 
@@ -319,42 +316,121 @@ export default function WatchPage({
     }
   };
 
-  // ✅ FIXED: Time-delta based progress tracking
-  const handleProgress = () => {
-    if (!isPlaying) return;
+  // ✅ Phase 1: Save player state to backend
+  const savePlayerState = async (state: PlayerState) => {
+    if (!video) return;
 
-    const sync = watchSyncRef.current;
-    const now = Date.now();
-
-    // Calculate actual elapsed time since last tick (in seconds)
-    const deltaMs = now - sync.lastTimestamp;
-    const deltaSec = deltaMs / 1000;
-
-    // Sanity check: ignore unrealistic deltas (> 5s means tab was hidden or paused)
-    if (deltaSec > 5) {
-      sync.lastTimestamp = now;
-      return;
-    }
-
-    sync.accumulatedSeconds += deltaSec;
-    sync.lastTimestamp = now;
-
-    // Sync every 30 seconds
-    if (sync.accumulatedSeconds >= VIDEO_SYNC_INTERVAL) {
-      const toSync = sync.accumulatedSeconds;
-      sync.accumulatedSeconds = 0;
-      syncWatchHistory(toSync);
-      return;
-    }
-
-    // Initial sync after 5 seconds (for "instant" tracking)
-    if (!sync.initialSyncDone && sync.accumulatedSeconds >= 5) {
-      const toSync = sync.accumulatedSeconds;
-      sync.accumulatedSeconds = 0;
-      sync.initialSyncDone = true;
-      syncWatchHistory(toSync);
+    try {
+      await fetch(`/api/videos/${video.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentTime: Math.floor(state.currentTime),
+          playbackRate: state.playbackRate,
+          muted: state.muted,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to save player state:", error);
     }
   };
+
+  // ✅ Phase 1: Handle player state changes
+  const handlePlayerStateChange = (ytState: number, currentState: PlayerState) => {
+    const sync = watchSyncRef.current;
+
+    if (ytState === YT_PLAYER_STATE.PLAYING) {
+      // Reset timestamp when starting to play
+      sync.lastTimestamp = Date.now();
+    } else if (ytState === YT_PLAYER_STATE.PAUSED) {
+      // Save state when paused
+      savePlayerState(currentState);
+
+      // Sync accumulated watch time
+      if (sync.accumulatedSeconds >= 5 && !sync.syncing && video) {
+        syncWatchHistory(sync.accumulatedSeconds);
+        sync.accumulatedSeconds = 0;
+      }
+    } else if (ytState === YT_PLAYER_STATE.ENDED) {
+      // Mark as complete when video ends
+      if (!completed) handleMarkComplete();
+
+      // 🟡 FIX 4: Clear accumulated time to prevent double save on unmount
+      sync.accumulatedSeconds = 0;
+
+      // Save final state
+      savePlayerState(currentState);
+    }
+  };
+
+  // ✅ Phase 1: Progress tracking with interval polling
+  useEffect(() => {
+    if (!playerRef.current || !video) return;
+
+    const progressInterval = setInterval(() => {
+      const ytState = playerRef.current?.getPlayerState();
+
+      if (ytState !== YT_PLAYER_STATE.PLAYING) return;
+
+      const sync = watchSyncRef.current;
+      const now = Date.now();
+
+      // Calculate actual elapsed time since last tick (in seconds)
+      const deltaMs = now - sync.lastTimestamp;
+      const deltaSec = deltaMs / 1000;
+
+      // Sanity check: ignore unrealistic deltas (> 5s means tab was hidden or paused)
+      if (deltaSec > 5) {
+        sync.lastTimestamp = now;
+        return;
+      }
+
+      sync.accumulatedSeconds += deltaSec;
+      sync.lastTimestamp = now;
+
+      // Update current time for notes
+      const currentTime = playerRef.current?.getCurrentTime() || 0;
+      setCurrentTime(currentTime);
+
+      // Sync every 30 seconds
+      if (sync.accumulatedSeconds >= VIDEO_SYNC_INTERVAL) {
+        const toSync = sync.accumulatedSeconds;
+        sync.accumulatedSeconds = 0;
+        syncWatchHistory(toSync);
+        return;
+      }
+
+      // Initial sync after 5 seconds (for "instant" tracking)
+      if (!sync.initialSyncDone && sync.accumulatedSeconds >= 5) {
+        const toSync = sync.accumulatedSeconds;
+        sync.accumulatedSeconds = 0;
+        sync.initialSyncDone = true;
+        syncWatchHistory(toSync);
+      }
+    }, 1000); // Poll every second
+
+    return () => clearInterval(progressInterval);
+  }, [video, completed]);
+
+  // ✅ Phase 1: Save state on route change / unmount
+  useEffect(() => {
+    return () => {
+      if (playerRef.current) {
+        const currentState: PlayerState = {
+          currentTime: playerRef.current.getCurrentTime(),
+          playbackRate: playerRef.current.getPlaybackRate(),
+          muted: playerRef.current.isMuted(),
+        };
+        savePlayerState(currentState);
+      }
+
+      // Sync remaining time
+      const sync = watchSyncRef.current;
+      if (sync.accumulatedSeconds >= 5 && !sync.syncing && video) {
+        syncWatchHistory(sync.accumulatedSeconds);
+      }
+    };
+  }, [video]);
 
   if (!mounted || loading) {
     return (
@@ -426,51 +502,24 @@ export default function WatchPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className={`${showPlaylist && playlistId ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300`}>
-            {/* Video Player */}
+            {/* Video Player - Phase 1: Native YouTube IFrame */}
             <div className="mb-6">
               <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
-                <ReactPlayer
-                  ref={setPlayerRef}
-                  src={`https://www.youtube.com/watch?v=${video.youtubeId}`}
-                  playing={isPlaying}
-                  controls
-                  width="100%"
-                  height="100%"
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onProgress={(state: any) => {
-                    if (state?.playedSeconds !== undefined) {
-                      setCurrentTime(state.playedSeconds);
-                    }
-
-                    // ✅ Auto-correct duration from player if DB has 0
-                    if (
-                      state?.duration &&
-                      video.duration === 0 &&
-                      state.duration > 0 &&
-                      !durationCorrectedRef.current
-                    ) {
-                      durationCorrectedRef.current = true;
-                      const playerDuration = state.duration;
-                      // Update backend (fire-and-forget)
-                      fetch(`/api/videos/${video.id}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ duration: Math.round(playerDuration) }),
-                      }).catch(console.error);
-                      // Update local state for immediate UI feedback
-                      setVideo(prev => prev ? { ...prev, duration: Math.round(playerDuration) } : prev);
-                    }
-
-                    handleProgress();
+                <YouTubePlayer
+                  ref={playerRef}
+                  videoId={video.youtubeId}
+                  initialState={{
+                    currentTime: video.currentTime || 0,
+                    playbackRate: video.playbackRate || 1.0,
+                    muted: video.muted || false,
                   }}
-                  onEnded={() => {
-                    // Mark as complete when video ends
-                    if (!completed) handleMarkComplete();
-                  }}
-                  config={{
-                    youtube: {
-                      rel: 0
+                  onStateChange={handlePlayerStateChange}
+                  onError={(errorCode) => {
+                    console.error("YouTube Player Error:", errorCode);
+                    if (errorCode === 150 || errorCode === 101) {
+                      toast.error("This video cannot be embedded. Please watch it on YouTube.");
+                    } else {
+                      toast.error("Failed to load video");
                     }
                   }}
                 />

@@ -44,6 +44,12 @@ model Video {
   progress    Int      @default(0) // percentage 0-100
   completed   Boolean  @default(false)
   inLibrary   Boolean  @default(true)
+  
+  // Player state persistence (Phase 1)
+  currentTime   Int   @default(0)      // Last playback position in seconds
+  playbackRate  Float @default(1.0)    // Playback speed (0.25, 0.5, 1.0, 1.5, 2.0)
+  muted         Boolean @default(false) // Mute state
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

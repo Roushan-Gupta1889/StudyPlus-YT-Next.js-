@@ -46,7 +46,15 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await request.json();
-        const { progress, completed } = body;
+        const {
+            progress,
+            completed,
+            duration,
+            // Phase 1: Player state fields
+            currentTime,
+            playbackRate,
+            muted
+        } = body;
 
         const video = await prisma.video.findUnique({
             where: {
@@ -60,8 +68,32 @@ export async function PATCH(
 
         // Build update data
         const updateData: any = {};
+
+        // Existing fields
         if (progress !== undefined) updateData.progress = progress;
         if (completed !== undefined) updateData.completed = completed;
+        if (duration !== undefined) updateData.duration = duration;
+
+        // Phase 1: Player state fields with validation
+        if (currentTime !== undefined) {
+            if (typeof currentTime === 'number' && currentTime >= 0) {
+                updateData.currentTime = Math.floor(currentTime);
+            }
+        }
+
+        if (playbackRate !== undefined) {
+            // Validate playback rate (YouTube supports: 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2)
+            const validRates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+            if (validRates.includes(playbackRate)) {
+                updateData.playbackRate = playbackRate;
+            }
+        }
+
+        if (muted !== undefined) {
+            if (typeof muted === 'boolean') {
+                updateData.muted = muted;
+            }
+        }
 
         // Only update if there's something to update
         if (Object.keys(updateData).length === 0) {
