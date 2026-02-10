@@ -113,6 +113,9 @@ export function Footer() {
           <p className="text-sm text-muted-foreground text-center">
             © {new Date().getFullYear()} StudyPlus YT. All rights reserved.
           </p>
+          <p className="text-xs text-muted-foreground/60 text-center mt-2 max-w-lg mx-auto">
+            StudyPlus integrates with YouTube using official APIs. All video rights belong to their respective creators.
+          </p>
         </div>
       </div>
     </footer>

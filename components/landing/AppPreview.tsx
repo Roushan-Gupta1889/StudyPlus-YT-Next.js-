@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Play, FileText, BarChart3, ListVideo, ChevronLeft, ChevronRight } from "lucide-react";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ const screenshots = [
     title: "Minimal Video Player",
     description: "Focus on learning with our distraction-free player",
     icon: Play,
+    image: "/assets/feature-player.png",
     gradient: "from-primary/20 to-primary/5",
   },
   {
@@ -18,6 +20,7 @@ const screenshots = [
     title: "Organized Playlists",
     description: "All your learning videos in one curated place",
     icon: ListVideo,
+    image: "/assets/feature-playlists.png",
     gradient: "from-success/20 to-success/5",
   },
   {
@@ -25,6 +28,7 @@ const screenshots = [
     title: "Timestamped Notes",
     description: "Take notes linked to specific moments in videos",
     icon: FileText,
+    image: "/assets/feature-notes.png",
     gradient: "from-accent-foreground/20 to-accent/5",
   },
   {
@@ -32,6 +36,7 @@ const screenshots = [
     title: "Progress Analytics",
     description: "Track your learning journey with detailed insights",
     icon: BarChart3,
+    image: "/assets/feature-analytics.png",
     gradient: "from-destructive/20 to-destructive/5",
   },
 ];
@@ -102,31 +107,30 @@ export function AppPreview() {
             </div>
 
             {/* Screenshot display */}
-            <div className="relative aspect-video bg-gradient-to-br from-background to-muted overflow-hidden">
+            <div className="relative aspect-video bg-muted overflow-hidden">
               {screenshots.map((screen, index) => {
-                const Icon = screen.icon;
                 const isActive = index === activeIndex;
                 const offset = index - activeIndex;
 
                 return (
                   <div
                     key={screen.id}
-                    className={`absolute inset-0 flex flex-col items-center justify-center p-8 transition-all duration-700 ease-out ${isActive
-                        ? "opacity-100 scale-100 translate-x-0"
-                        : offset > 0
-                          ? "opacity-0 scale-95 translate-x-full"
-                          : "opacity-0 scale-95 -translate-x-full"
+                    className={`absolute inset-0 flex flex-col items-center justify-center transition-all duration-700 ease-out ${isActive
+                      ? "opacity-100 scale-100 translate-x-0"
+                      : offset > 0
+                        ? "opacity-0 scale-95 translate-x-full"
+                        : "opacity-0 scale-95 -translate-x-full"
                       }`}
                   >
-                    <div className={`w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-gradient-to-br ${screen.gradient} flex items-center justify-center mb-6 animate-float`}>
-                      <Icon className="w-12 h-12 md:w-16 md:h-16 text-primary" />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={screen.image}
+                        alt={screen.title}
+                        fill
+                        className="object-contain" // Use contain to show full UI screenshot without cropping
+                        priority={index === 0}
+                      />
                     </div>
-                    <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-                      {screen.title}
-                    </h3>
-                    <p className="text-muted-foreground text-center max-w-md">
-                      {screen.description}
-                    </p>
                   </div>
                 );
               })}
@@ -165,8 +169,8 @@ export function AppPreview() {
                     setActiveIndex(index);
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${isActive
-                      ? "bg-primary text-primary-foreground shadow-lg scale-105"
-                      : "bg-card border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-lg scale-105"
+                    : "bg-card border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground"
                     }`}
                 >
                   <Icon className="w-4 h-4" />
