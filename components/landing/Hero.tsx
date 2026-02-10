@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Play, ArrowRight, Sparkles } from "lucide-react";
+import { VideoPlayer } from "@/components/ui/VideoPlayer";
 
 export function Hero() {
   return (
@@ -63,7 +64,6 @@ export function Hero() {
             {/* Glow effect */}
             <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
             <div className="relative rounded-2xl overflow-hidden shadow-elevated border border-border bg-card p-2 transition-transform duration-500 group-hover:scale-[1.01]">
               {/* Browser chrome */}
               <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 rounded-t-xl border-b border-border">
@@ -79,19 +79,11 @@ export function Hero() {
                 </div>
               </div>
 
-              <div className="rounded-xl overflow-hidden bg-muted aspect-video flex items-center justify-center relative">
-                {/* Animated background pattern */}
-                <div className="absolute inset-0 opacity-5">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary))_1px,transparent_1px)] bg-[length:24px_24px]" />
-                </div>
-
-                <div className="text-center p-8 relative z-10">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-500 animate-pulse-glow">
-                    <Play className="w-10 h-10 text-primary ml-1" />
-                  </div>
-                  <p className="text-muted-foreground font-medium">Click to see StudyPlus in action</p>
-                  <p className="text-sm text-muted-foreground/70 mt-1">Scroll down for features tour</p>
-                </div>
+              <div className="rounded-xl overflow-hidden bg-muted aspect-video relative">
+                <VideoPlayer
+                  videoSrc="/assets/Demo.mp4"
+                  posterSrc="/assets/demo-poster.jpg"
+                />
               </div>
             </div>
           </div>
