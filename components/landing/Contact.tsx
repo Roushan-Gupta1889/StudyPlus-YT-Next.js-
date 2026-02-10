@@ -1,31 +1,69 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Send, MapPin, Clock, Sparkles } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Mail, Send, MapPin, Clock, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner"; // Use sonner directly
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { sendContactEmail } from "@/app/actions/contact";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+const formSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  subject: z.string().min(5, "Subject must be at least 5 characters"),
+  message: z.string().min(10, "Message must be at least 10 characters"),
+});
 
 export function Contact() {
-  const { toast } = useToast();
   const { ref, isVisible } = useScrollAnimation({ threshold: 0.1 });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      subject: "",
+      message: "",
+    },
+  });
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast({
-        title: "Message sent!",
-        description: "We'll get back to you as soon as possible.",
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const result = await sendContactEmail(values);
+
+      if (result.success) {
+        toast.success("Message sent successfully!", {
+          description: "We'll get back to you as soon as possible.",
+        });
+        form.reset();
+      } else {
+        toast.error("Something went wrong.", {
+          description: result.error || "Please try again later.",
+        });
+      }
+    } catch (error) {
+      toast.error("Error sending message", {
+        description: "An unexpected error occurred. Please try again.",
       });
-      (e.target as HTMLFormElement).reset();
-    }, 1000);
-  };
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const infoCards = [
     {
@@ -36,7 +74,7 @@ export function Contact() {
           href="mailto:hello@studyplusyt.com"
           className="text-muted-foreground hover:text-primary transition-colors"
         >
-          hello@studyplusyt.com
+          studyplusyt@gmail.com
         </a>
       ),
     },
@@ -119,85 +157,92 @@ export function Contact() {
                 <p className="text-muted-foreground">Fill out the form and we'll be in touch.</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-medium text-foreground">
-                      Name
-                    </label>
-                    <Input
-                      id="name"
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                  console.error("Form validation errors:", errors);
+                  toast.error("Please check the form for errors");
+                })} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
                       name="name"
-                      placeholder="John Doe"
-                      required
-                      maxLength={100}
-                      className="bg-background/50 border-border/50 focus:border-primary h-12 transition-all duration-300 focus:shadow-lg focus:shadow-primary/10"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John Doe" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-foreground">
-                      Email
-                    </label>
-                    <Input
-                      id="email"
+                    <FormField
+                      control={form.control}
                       name="email"
-                      type="email"
-                      placeholder="john@example.com"
-                      required
-                      maxLength={255}
-                      className="bg-background/50 border-border/50 focus:border-primary h-12 transition-all duration-300 focus:shadow-lg focus:shadow-primary/10"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input placeholder="john@example.com" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="subject" className="text-sm font-medium text-foreground">
-                    Subject
-                  </label>
-                  <Input
-                    id="subject"
+                  <FormField
+                    control={form.control}
                     name="subject"
-                    placeholder="How can we help you?"
-                    required
-                    maxLength={200}
-                    className="bg-background/50 border-border/50 focus:border-primary h-12 transition-all duration-300 focus:shadow-lg focus:shadow-primary/10"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subject</FormLabel>
+                        <FormControl>
+                          <Input placeholder="How can we help you?" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="message" className="text-sm font-medium text-foreground">
-                    Message
-                  </label>
-                  <Textarea
-                    id="message"
+                  <FormField
+                    control={form.control}
                     name="message"
-                    placeholder="Tell us more about your inquiry..."
-                    rows={5}
-                    required
-                    maxLength={1000}
-                    className="bg-background/50 border-border/50 focus:border-primary resize-none transition-all duration-300 focus:shadow-lg focus:shadow-primary/10"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Message</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Tell us more about your inquiry..."
+                            className="bg-background/50 border-border/50 focus:border-primary resize-none min-h-[120px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <Button
-                  type="submit"
-                  className="w-full h-12 text-base font-semibold group"
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      Sending...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                      Send Message
-                    </span>
-                  )}
-                </Button>
-              </form>
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold group"
+                    size="lg"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                        Send Message
+                      </span>
+                    )}
+                  </Button>
+                </form>
+              </Form>
             </div>
           </div>
         </div>
