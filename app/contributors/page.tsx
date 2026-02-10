@@ -84,7 +84,7 @@ export default function ContributorsPage() {
                         </h1>
                         <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
                             StudyPlus YT is free because of amazing people like you.
-                            Your contribution keeps us ad-free, distraction-free, and focused on what matters—your learning.
+                            Your contribution keeps us 100% focused, distraction-free, and dedicated to what matters—your learning.
                         </p>
                         <Button size="lg" className="gap-2 shadow-elevated" asChild>
                             <a href="#contribute">
@@ -304,7 +304,7 @@ export default function ContributorsPage() {
                         <div className="flex items-center justify-center gap-4 flex-wrap">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <div className="w-2 h-2 rounded-full bg-success"></div>
-                                No ads, ever
+                                No distractions, ever
                             </div>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <div className="w-2 h-2 rounded-full bg-success"></div>

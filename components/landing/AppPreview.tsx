@@ -36,7 +36,7 @@ const screenshots = [
     title: "Progress Analytics",
     description: "Track your learning journey with detailed insights",
     icon: BarChart3,
-    image: "/assets/feature-analytics.png",
+    image: "/assets/analytics1.png",
     gradient: "from-destructive/20 to-destructive/5",
   },
 ];

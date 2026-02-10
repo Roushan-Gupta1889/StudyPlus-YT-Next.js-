@@ -26,7 +26,7 @@ const footerLinks = {
 const socialLinks = [
   { icon: Mail, href: "mailto:studyplusyt@gmail.com", label: "Email", colorClass: "bg-red-500 text-white hover:bg-red-600 hover:scale-110" },
   { icon: Instagram, href: "https://instagram.com/studyplusyt", label: "Instagram", colorClass: "bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 text-white hover:scale-110 hover:shadow-lg" },
-  { icon: WhatsAppIcon, href: "https://wa.me/919341101889", label: "WhatsApp", colorClass: "bg-[#25D366] text-white hover:bg-[#1ebe5d] hover:scale-110" },
+  { icon: WhatsAppIcon, href: "https://wa.me/918310490541", label: "WhatsApp", colorClass: "bg-[#25D366] text-white hover:bg-[#1ebe5d] hover:scale-110" },
 ];
 
 export function Footer() {
