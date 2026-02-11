@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X } from "lucide-react";
+import { BookOpen, Menu, X, Heart, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
@@ -21,12 +21,26 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-8">
-          <Link href="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <div className="hidden md:flex items-center gap-6">
+          <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Home
+          </Link>
+          <Link href="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Features
           </Link>
-          <Link href="/contributors" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Contributors
+          <Link
+            href="/contributors"
+            className="group relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 via-purple-500/10 to-pink-500/10 hover:from-primary/20 hover:via-purple-500/20 hover:to-pink-500/20 text-primary border border-primary/20 transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_20px_-5px_rgba(var(--primary),0.5)] overflow-hidden"
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[200%] group-hover:animate-[shimmer_1.5s_infinite]" />
+            <Heart className="w-4 h-4 fill-current animate-pulse" />
+            <span className="text-sm font-bold bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
+              Contributors
+            </span>
+            <span className="flex h-2 w-2 relative ml-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500" />
+            </span>
           </Link>
         </div>
 
@@ -70,6 +84,13 @@ export function Navbar() {
               {/* Navigation Links */}
               <div className="space-y-2">
                 <Link
+                  href="/"
+                  className="block px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Home
+                </Link>
+                <Link
                   href="/features"
                   className="block px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
@@ -78,10 +99,11 @@ export function Navbar() {
                 </Link>
                 <Link
                   href="/contributors"
-                  className="block px-4 py-2 rounded-lg text-foreground hover:bg-accent transition-colors"
+                  className="flex items-center justify-between px-4 py-2 rounded-lg text-primary bg-primary/10 border border-primary/20"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Contributors
+                  <span className="font-medium">Contributors</span>
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 </Link>
               </div>
 

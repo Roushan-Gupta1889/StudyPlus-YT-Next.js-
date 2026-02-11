@@ -27,9 +27,27 @@ model User {
   watchHistory  WatchHistory[]
   analytics     UserAnalytics?
   preferences   UserPreferences?
-  iitmProgress  IITMUserProgress[]
+  iitmProgress    IITMUserProgress[]
+  contributions   Contributor[]
 
   @@map("users")
+}
+
+model Contributor {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  amount      Int
+  message     String?  @db.Text
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([amount])
+  @@index([createdAt])
+  @@map("contributors")
 }
 
 model Video {
