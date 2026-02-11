@@ -23,6 +23,12 @@ export default function LoginPage() {
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
+    const [showIITMHint, setShowIITMHint] = useState(false)
+
+    // Check if email is IITM
+    const isIITM = email.endsWith('@iitm.ac.in') ||
+        email.endsWith('@study.iitm.ac.in') ||
+        email.endsWith('@ds.study.iitm.ac.in')
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault()
@@ -100,7 +106,29 @@ export default function LoginPage() {
                                     required
                                     disabled={loading}
                                     className="bg-background/50"
+                                    onFocus={() => setShowIITMHint(true)}
+                                    onBlur={() => setShowIITMHint(false)}
                                 />
+                                {isIITM ? (
+                                    <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-2">
+                                        <span>✓</span>
+                                        <span>IITM email detected</span>
+                                    </p>
+                                ) : showIITMHint && (
+                                    <div className="text-[0.8rem] text-muted-foreground bg-primary/5 border border-primary/10 rounded-md p-3 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <p className="font-semibold text-primary mb-1 flex items-center gap-1.5">
+                                            <span className="text-base">🎓</span>
+                                            IITM Student or Staff?
+                                        </p>
+                                        <p className="leading-relaxed mb-2 opacity-90">
+                                            Use your institute email ending in <code className="bg-primary/10 px-1 py-0.5 rounded text-primary text-xs">@iitm.ac.in</code>, <code className="bg-primary/10 px-1 py-0.5 rounded text-primary text-xs">@study.iitm.ac.in</code>, or <code className="bg-primary/10 px-1 py-0.5 rounded text-primary text-xs">@ds.study.iitm.ac.in</code> to unlock exclusive tools.
+                                        </p>
+                                        <div className="pt-2 border-t border-primary/10 flex items-center gap-1.5 text-foreground/80">
+                                            <span className="text-base">✨</span>
+                                            <span>General users are welcome with any email!</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">

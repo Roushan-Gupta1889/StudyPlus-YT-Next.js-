@@ -360,9 +360,9 @@ export default async function ContributorsPage() {
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
             <Footer />
-        </div>
+        </div >
     );
 }
 
