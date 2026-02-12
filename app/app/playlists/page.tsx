@@ -38,19 +38,9 @@ export default function PlaylistsPage() {
   // Fetch playlists
   useEffect(() => {
     fetchPlaylists();
-    updateMissingDurations();
   }, []);
 
-  const updateMissingDurations = async () => {
-    try {
-      await fetch("/api/videos/update-durations", {
-        method: "POST",
-      });
-      // Silently update, don't show toast
-    } catch (error) {
-      console.error("Silent duration update failed:", error);
-    }
-  };
+
 
   const fetchPlaylists = async () => {
     try {
@@ -143,51 +133,51 @@ export default function PlaylistsPage() {
     }
   };
 
- const handleAddPlaylist = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleAddPlaylist = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!playlistUrl.trim()) {
-    toast.error("Please enter a playlist URL");
-    return;
-  }
-
-  setSubmitting(true);
-
-  try {
-    const response = await fetch("/api/playlists/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playlistUrl,
-        playlistName: playlistName || undefined,
-      }),
-    });
-
-    const data = await response.json(); // ✅ PARSE FIRST
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error?.message ||
-        data?.message ||
-        "Failed to add playlist"
-      );
+    if (!playlistUrl.trim()) {
+      toast.error("Please enter a playlist URL");
+      return;
     }
 
-    await fetchPlaylists();
+    setSubmitting(true);
 
-    setPlaylistUrl("");
-    setPlaylistName("");
-    setOpen(false);
+    try {
+      const response = await fetch("/api/playlists/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playlistUrl,
+          playlistName: playlistName || undefined,
+        }),
+      });
 
-    toast.success(`Playlist added with ${data.videosAdded} videos!`);
-  } catch (error) {
-    toast.error(
-      error instanceof Error ? error.message : "Failed to add playlist"
-    );
-  } finally {
-    setSubmitting(false);
-  }
-};
+      const data = await response.json(); // ✅ PARSE FIRST
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ||
+          data?.message ||
+          "Failed to add playlist"
+        );
+      }
+
+      await fetchPlaylists();
+
+      setPlaylistUrl("");
+      setPlaylistName("");
+      setOpen(false);
+
+      toast.success(`Playlist added with ${data.videosAdded} videos!`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add playlist"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
 
 

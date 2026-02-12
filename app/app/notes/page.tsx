@@ -62,10 +62,8 @@ export default function NotesPage() {
             }
         };
 
-        if (session) {
-            fetchNotes();
-        }
-    }, [session]);
+        fetchNotes();
+    }, []);
 
     useEffect(() => {
         if (searchQuery.trim()) {

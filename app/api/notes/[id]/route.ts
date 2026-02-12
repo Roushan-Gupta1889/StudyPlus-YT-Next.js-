@@ -14,6 +14,14 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
         const { id } = await params;
 
         // Verify the note belongs to the user before deleting
@@ -25,7 +33,7 @@ export async function DELETE(
             return NextResponse.json({ error: "Note not found" }, { status: 404 });
         }
 
-        if (note.userId !== session.user.id) {
+        if (note.userId !== user.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         }
 

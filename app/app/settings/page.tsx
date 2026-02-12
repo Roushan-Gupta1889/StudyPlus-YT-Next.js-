@@ -69,10 +69,8 @@ export default function SettingsPage() {
             }
         };
 
-        if (session) {
-            fetchPreferences();
-        }
-    }, [session]);
+        fetchPreferences();
+    }, []);
 
     const handleSaveProfile = async () => {
         if (!name.trim()) {
@@ -130,13 +128,7 @@ export default function SettingsPage() {
         await signOut({ callbackUrl: "/" });
     };
 
-    if (!session) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        );
-    }
+
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
@@ -171,13 +163,13 @@ export default function SettingsPage() {
                         <Input
                             id="email"
                             type="email"
-                            value={session.user.email || ""}
+                            value={session?.user?.email || ""}
                             className="mt-1.5"
                             disabled
                         />
                         <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
                     </div>
-                    {session.user.isIITMUser && (
+                    {session?.user?.isIITMUser && (
                         <div className="flex items-center gap-2 text-sm text-primary">
                             <Shield className="w-4 h-4" />
                             <span>IITM Verified Account</span>
@@ -185,7 +177,7 @@ export default function SettingsPage() {
                     )}
                     <Button
                         onClick={handleSaveProfile}
-                        disabled={isSavingProfile || name === session.user.name}
+                        disabled={isSavingProfile || name === session?.user?.name}
                     >
                         {isSavingProfile ? (
                             <>

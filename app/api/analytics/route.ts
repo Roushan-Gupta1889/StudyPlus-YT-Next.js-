@@ -8,21 +8,29 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         // Get or create analytics
         let analytics = await prisma.userAnalytics.findUnique({
             where: {
-                userId: session.user.id,
+                userId: user.id,
             },
         });
 
         if (!analytics) {
             analytics = await prisma.userAnalytics.create({
                 data: {
-                    userId: session.user.id,
+                    userId: user.id,
                 },
             });
         }
@@ -30,7 +38,7 @@ export async function GET(request: NextRequest) {
         // Calculate current streak
         const allHistory = await prisma.watchHistory.findMany({
             where: {
-                userId: session.user.id,
+                userId: user.id,
             },
             orderBy: {
                 watchedAt: "desc",
@@ -86,7 +94,7 @@ export async function GET(request: NextRequest) {
         // Update analytics with calculated streaks
         analytics = await prisma.userAnalytics.update({
             where: {
-                userId: session.user.id,
+                userId: user.id,
             },
             data: {
                 currentStreak,
@@ -100,7 +108,7 @@ export async function GET(request: NextRequest) {
 
         const weeklyHistory = await prisma.watchHistory.findMany({
             where: {
-                userId: session.user.id,
+                userId: user.id,
                 watchedAt: {
                     gte: sevenDaysAgo,
                 },
@@ -126,7 +134,7 @@ export async function GET(request: NextRequest) {
         // Get category breakdown (top channels)
         const videos = await prisma.video.findMany({
             where: {
-                userId: session.user.id,
+                userId: user.id,
             },
             select: {
                 channel: true,

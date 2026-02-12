@@ -55,29 +55,18 @@ export default function DashboardPage() {
             try {
                 setIsLoading(true);
 
-                // Fetch analytics
-                const analyticsRes = await fetch("/api/analytics");
-                if (analyticsRes.ok) {
-                    const analyticsData = await analyticsRes.json();
-                    setAnalytics(analyticsData);
-                }
+                const response = await fetch("/api/dashboard");
 
-                // Fetch videos
-                const videosRes = await fetch("/api/videos");
-                if (videosRes.ok) {
-                    const videosData = await videosRes.json();
-                    // Filter videos with progress > 0 and < 100
-                    const inProgress = videosData.filter(
-                        (v: Video) => v.progress > 0 && v.progress < 100
-                    );
-                    setVideos(inProgress.slice(0, 4));
-                }
+                if (response.ok) {
+                    const data = await response.json();
 
-                // Fetch playlists
-                const playlistsRes = await fetch("/api/playlists");
-                if (playlistsRes.ok) {
-                    const playlistsData = await playlistsRes.json();
-                    setPlaylists(playlistsData.slice(0, 3)); // Top 3
+                    // Update all states from aggregated response
+                    if (data.analytics) setAnalytics(data.analytics);
+                    if (data.continueWatching) setVideos(data.continueWatching);
+                    if (data.playlists) setPlaylists(data.playlists);
+                } else {
+                    console.error("Dashboard API error:", response.status);
+                    toast.error("Failed to load dashboard data");
                 }
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
@@ -87,10 +76,8 @@ export default function DashboardPage() {
             }
         };
 
-        if (session) {
-            fetchDashboardData();
-        }
-    }, [session]);
+        fetchDashboardData();
+    }, []);
 
     // Calculate today's watch time (last 24 hours)
     const todayWatchTime = analytics?.weeklyActivity

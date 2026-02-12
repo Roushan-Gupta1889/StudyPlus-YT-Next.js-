@@ -8,8 +8,16 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const body = await request.json();
@@ -43,12 +51,12 @@ export async function POST(request: NextRequest) {
         const progress = await prisma.iITMUserProgress.upsert({
             where: {
                 userId_courseId: {
-                    userId: session.user.id,
+                    userId: user.id,
                     courseId: course.id,
                 },
             },
             create: {
-                userId: session.user.id,
+                userId: user.id,
                 courseId: course.id,
                 videosWatched,
                 totalVideos,
@@ -79,13 +87,21 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         // Get all progress records for this user
         const progressRecords = await prisma.iITMUserProgress.findMany({
-            where: { userId: session.user.id },
+            where: { userId: user.id },
             include: {
                 course: {
                     include: {

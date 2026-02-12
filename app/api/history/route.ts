@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             const { response, statusCode } = createErrorResponse(
                 ErrorCode.UNAUTHORIZED,
                 "Unauthorized",
@@ -28,9 +28,22 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(response, { status: statusCode });
         }
 
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.NOT_FOUND,
+                "User not found",
+                404
+            );
+            return NextResponse.json(response, { status: statusCode });
+        }
+
         const history = await prisma.watchHistory.findMany({
             where: {
-                userId: session.user.id,
+                userId: user.id,
             },
             include: {
                 video: true,
@@ -61,7 +74,7 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             const { response, statusCode } = createErrorResponse(
                 ErrorCode.UNAUTHORIZED,
                 "Unauthorized",
@@ -70,9 +83,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(response, { status: statusCode });
         }
 
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            const { response, statusCode } = createErrorResponse(
+                ErrorCode.NOT_FOUND,
+                "User not found",
+                404
+            );
+            return NextResponse.json(response, { status: statusCode });
+        }
+
         // Rate limiting - 30 req/min
         try {
-            await limiter.check(30, session.user.id);
+            await limiter.check(30, user.id);
         } catch {
             const { response, statusCode } = createErrorResponse(
                 ErrorCode.RATE_LIMIT_EXCEEDED,
@@ -112,7 +138,7 @@ export async function POST(request: NextRequest) {
             where: { id: videoId },
         });
 
-        if (!video || video.userId !== session.user.id) {
+        if (!video || video.userId !== user.id) {
             const { response, statusCode } = createErrorResponse(
                 ErrorCode.NOT_FOUND,
                 "Video not found",
@@ -126,12 +152,12 @@ export async function POST(request: NextRequest) {
             const historyEntry = await tx.watchHistory.upsert({
                 where: {
                     userId_videoId: {
-                        userId: session.user.id,
+                        userId: user.id,
                         videoId,
                     },
                 },
                 create: {
-                    userId: session.user.id,
+                    userId: user.id,
                     videoId,
                     watchTime,
                 },
@@ -173,10 +199,10 @@ export async function POST(request: NextRequest) {
 
             await tx.userAnalytics.upsert({
                 where: {
-                    userId: session.user.id,
+                    userId: user.id,
                 },
                 create: {
-                    userId: session.user.id,
+                    userId: user.id,
                     totalWatchTime: watchTime,
                     videosCompleted: videosCompletedIncrement,
                     lastWatchDate: new Date(),
@@ -229,8 +255,16 @@ export async function DELETE(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -241,7 +275,7 @@ export async function DELETE(request: NextRequest) {
             await prisma.watchHistory.delete({
                 where: {
                     userId_videoId: {
-                        userId: session.user.id,
+                        userId: user.id,
                         videoId,
                     },
                 },
@@ -250,7 +284,7 @@ export async function DELETE(request: NextRequest) {
             // Clear all history
             await prisma.watchHistory.deleteMany({
                 where: {
-                    userId: session.user.id,
+                    userId: user.id,
                 },
             });
         }

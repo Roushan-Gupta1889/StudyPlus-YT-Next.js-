@@ -65,10 +65,8 @@ export default function HistoryPage() {
             }
         };
 
-        if (session) {
-            fetchHistory();
-        }
-    }, [session]);
+        fetchHistory();
+    }, []);
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.preventDefault();

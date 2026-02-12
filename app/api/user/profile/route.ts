@@ -8,12 +8,12 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
+            where: { email: session.user.email },
             select: {
                 id: true,
                 name: true,
@@ -39,8 +39,16 @@ export async function PATCH(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const body = await request.json();
@@ -54,8 +62,8 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: "Name is too long (max 100 characters)" }, { status: 400 });
         }
 
-        const user = await prisma.user.update({
-            where: { id: session.user.id },
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
             data: { name: name.trim() },
             select: {
                 id: true,
@@ -65,7 +73,7 @@ export async function PATCH(request: NextRequest) {
             },
         });
 
-        return NextResponse.json(user);
+        return NextResponse.json(updatedUser);
     } catch (error) {
         console.error("[USER_PROFILE_PATCH]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });

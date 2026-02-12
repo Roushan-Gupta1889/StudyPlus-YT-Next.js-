@@ -8,8 +8,16 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -17,7 +25,7 @@ export async function GET(request: NextRequest) {
 
         const notes = await prisma.note.findMany({
             where: {
-                userId: session.user.id,
+                userId: user.id,
                 ...(videoId && { videoId }),
             },
             include: {
@@ -48,8 +56,16 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const body = await request.json();
@@ -66,13 +82,13 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        if (!video || video.userId !== session.user.id) {
+        if (!video || video.userId !== user.id) {
             return NextResponse.json({ error: "Video not found" }, { status: 404 });
         }
 
         const note = await prisma.note.create({
             data: {
-                userId: session.user.id,
+                userId: user.id,
                 videoId,
                 content,
                 timestamp,

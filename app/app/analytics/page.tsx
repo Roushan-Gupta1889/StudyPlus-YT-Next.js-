@@ -55,10 +55,8 @@ export default function AnalyticsPage() {
             }
         };
 
-        if (session) {
-            fetchAnalytics();
-        }
-    }, [session]);
+        fetchAnalytics();
+    }, []);
 
     if (isLoading) {
         return (

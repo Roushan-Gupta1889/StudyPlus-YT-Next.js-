@@ -8,19 +8,27 @@ export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
         let preferences = await prisma.userPreferences.findUnique({
-            where: { userId: session.user.id },
+            where: { userId: user.id },
         });
 
         // Create default preferences if none exist
         if (!preferences) {
             preferences = await prisma.userPreferences.create({
                 data: {
-                    userId: session.user.id,
+                    userId: user.id,
                 },
             });
         }
@@ -37,8 +45,16 @@ export async function PATCH(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.user?.email) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const body = await request.json();
@@ -55,9 +71,9 @@ export async function PATCH(request: NextRequest) {
         }
 
         const preferences = await prisma.userPreferences.upsert({
-            where: { userId: session.user.id },
+            where: { userId: user.id },
             create: {
-                userId: session.user.id,
+                userId: user.id,
                 ...updates,
             },
             update: updates,

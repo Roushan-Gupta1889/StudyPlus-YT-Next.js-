@@ -85,9 +85,8 @@ export default function IITMCurriculumPage() {
     useEffect(() => {
         if (status === "unauthenticated") {
             router.push("/login");
-        } else if (status === "authenticated") {
-            fetchCurriculum();
         }
+        fetchCurriculum();
     }, [status, router]);
 
     const fetchCurriculum = async () => {
@@ -196,7 +195,7 @@ export default function IITMCurriculumPage() {
 
 
 
-    if (status === "loading" || loading) {
+    if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
