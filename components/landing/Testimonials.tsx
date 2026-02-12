@@ -145,10 +145,11 @@ export function Testimonials() {
               <button
                 key={index}
                 className={`w-2 h-2 rounded-full transition-all duration-300 ${index === activeIndex
-                    ? "w-8 bg-primary"
-                    : "bg-border hover:bg-primary/50"
+                  ? "w-8 bg-primary"
+                  : "bg-border hover:bg-primary/50"
                   }`}
                 aria-label={`Go to slide ${index + 1}`}
+                suppressHydrationWarning
               />
             ))}
           </div>

@@ -2,53 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Smartphone, CheckCircle2, Share, MoreVertical } from "lucide-react";
+import {
+    Smartphone,
+    CheckCircle2,
+    Share,
+    MoreVertical,
+    Download,
+} from "lucide-react";
 import Link from "next/link";
-
-interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import { useInstallPrompt } from "@/components/providers/InstallProvider";
 
 export default function InstallPage() {
-    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-    const [isInstalled, setIsInstalled] = useState(false);
+    const { isInstalled, isInstallable, promptInstall } = useInstallPrompt();
     const [isIOS, setIsIOS] = useState(false);
 
     useEffect(() => {
-        // Check if already installed
-        if (window.matchMedia("(display-mode: standalone)").matches) {
-            setIsInstalled(true);
-        }
-
         // Check if iOS
         const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
         setIsIOS(isIOSDevice);
-
-        // Listen for install prompt
-        const handleBeforeInstallPrompt = (e: Event) => {
-            e.preventDefault();
-            setDeferredPrompt(e as BeforeInstallPromptEvent);
-        };
-
-        window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-        return () => {
-            window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-        };
     }, []);
-
-    const handleInstallClick = async () => {
-        if (!deferredPrompt) return;
-
-        await deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-
-        if (outcome === "accepted") {
-            setIsInstalled(true);
-        }
-        setDeferredPrompt(null);
-    };
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -62,9 +34,12 @@ export default function InstallPage() {
 
                 {/* Title */}
                 <div className="space-y-2">
-                    <h1 className="text-3xl font-bold text-foreground">Install StudyPlus</h1>
+                    <h1 className="text-3xl font-bold text-foreground">
+                        Install StudyPlus
+                    </h1>
                     <p className="text-muted-foreground">
-                        Get the full app experience with offline access, push notifications, and faster loading.
+                        Get the full app experience with offline access, push notifications,
+                        and faster loading.
                     </p>
                 </div>
 
@@ -88,12 +63,14 @@ export default function InstallPage() {
                     </div>
                 </div>
 
-                {/* Install Button or Instructions */}
+                {/* Install Instructions */}
                 {isInstalled ? (
                     <div className="space-y-4">
                         <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
                             <CheckCircle2 className="w-8 h-8 text-primary mx-auto mb-2" />
-                            <p className="text-primary font-medium">App installed successfully!</p>
+                            <p className="text-primary font-medium">
+                                App installed successfully!
+                            </p>
                         </div>
                         <Button asChild className="w-full" size="lg">
                             <Link href="/app/dashboard">Open App</Link>
@@ -104,35 +81,61 @@ export default function InstallPage() {
                         <div className="p-4 rounded-xl bg-muted border border-border text-left space-y-3">
                             <p className="font-medium text-foreground">To install on iOS:</p>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
-                                <span>Tap the <Share className="w-4 h-4 inline mx-1" /> Share button</span>
+                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                    1
+                                </span>
+                                <span>
+                                    Tap the <Share className="w-4 h-4 inline mx-1" /> Share button
+                                </span>
                             </div>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">2</span>
-                                <span>Scroll and tap &quot;Add to Home Screen&quot;</span>
+                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                    2
+                                </span>
+                                <span>Tap &quot;Add to Home Screen&quot;</span>
                             </div>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">3</span>
+                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                    3
+                                </span>
                                 <span>Tap &quot;Add&quot; to confirm</span>
                             </div>
                         </div>
                     </div>
-                ) : deferredPrompt ? (
-                    <Button onClick={handleInstallClick} className="w-full gap-2" size="lg">
-                        <Download className="w-5 h-5" />
-                        Install App
-                    </Button>
+                ) : isInstallable ? (
+                    <div className="space-y-4">
+                        <Button
+                            onClick={promptInstall}
+                            className="w-full gap-2"
+                            size="lg"
+                        >
+                            <Download className="w-5 h-5" />
+                            Install App
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                            Tap the button above to install.
+                        </p>
+                    </div>
                 ) : (
                     <div className="space-y-4">
                         <div className="p-4 rounded-xl bg-muted border border-border text-left space-y-3">
-                            <p className="font-medium text-foreground">To install on Android:</p>
+                            <p className="font-medium text-foreground">To install:</p>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
-                                <span>Tap the <MoreVertical className="w-4 h-4 inline mx-1" /> menu button</span>
+                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                    1
+                                </span>
+                                <span>
+                                    Tap the <MoreVertical className="w-4 h-4 inline mx-1" /> menu
+                                    button
+                                </span>
                             </div>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">2</span>
-                                <span>Tap &quot;Install app&quot; or &quot;Add to Home Screen&quot;</span>
+                                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                    2
+                                </span>
+                                <span>
+                                    Tap &quot;Install app&quot; or &quot;Add to Home Screen&quot;
+                                </span>
                             </div>
                         </div>
                     </div>

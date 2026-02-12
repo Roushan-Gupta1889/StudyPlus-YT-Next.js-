@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
+import { InstallPrompt } from "@/components/landing/InstallPrompt";
+import { InstallProvider } from "@/components/providers/InstallProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,9 +17,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#6366f1",
+};
+
 export const metadata: Metadata = {
   title: "StudyPlus YT",
   description: "A study-friendly YouTube player for focused learning",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -31,7 +38,10 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             <ToastProvider />
-            {children}
+            <InstallProvider>
+              <InstallPrompt />
+              {children}
+            </InstallProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

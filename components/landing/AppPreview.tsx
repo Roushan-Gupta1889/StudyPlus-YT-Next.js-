@@ -141,6 +141,7 @@ export function AppPreview() {
                 size="icon"
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/80 hover:bg-background shadow-lg opacity-0 hover:opacity-100 transition-opacity md:opacity-70"
                 onClick={goToPrev}
+                suppressHydrationWarning
               >
                 <ChevronLeft className="w-5 h-5" />
               </Button>
@@ -149,6 +150,7 @@ export function AppPreview() {
                 size="icon"
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/80 hover:bg-background shadow-lg opacity-0 hover:opacity-100 transition-opacity md:opacity-70"
                 onClick={goToNext}
+                suppressHydrationWarning
               >
                 <ChevronRight className="w-5 h-5" />
               </Button>
@@ -172,6 +174,7 @@ export function AppPreview() {
                     ? "bg-primary text-primary-foreground shadow-lg scale-105"
                     : "bg-card border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground"
                     }`}
+                  suppressHydrationWarning
                 >
                   <Icon className="w-4 h-4" />
                   <span className="text-sm font-medium hidden sm:inline">{screen.title}</span>

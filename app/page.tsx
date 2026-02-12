@@ -8,7 +8,7 @@ import { WhyStudyPlus } from "@/components/landing/WhyStudyPlus";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { Contact } from "@/components/landing/Contact";
 import { CTA } from "@/components/landing/CTA";
-import { InstallPrompt } from "@/components/landing/InstallPrompt";
+
 
 export default function HomePage() {
   return (
@@ -25,7 +25,7 @@ export default function HomePage() {
         <CTA />
       </main>
       <Footer />
-      <InstallPrompt />
+
     </div>
   );
 }

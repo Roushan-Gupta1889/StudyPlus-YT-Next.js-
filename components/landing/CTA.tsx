@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Smartphone } from "lucide-react";
+import { ArrowRight, Sparkles, Smartphone, Download } from "lucide-react";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { useInstallPrompt } from "@/components/providers/InstallProvider";
+import { useEffect, useState } from "react";
+
 export function CTA() {
   const {
     ref,
@@ -11,6 +14,14 @@ export function CTA() {
   } = useScrollAnimation({
     threshold: 0.2
   });
+
+  const { isInstallable, promptInstall } = useInstallPrompt();
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent));
+  }, []);
+
   return <section ref={ref} className="py-20 md:py-28 relative overflow-hidden">
     {/* Animated background */}
     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
@@ -46,12 +57,25 @@ export function CTA() {
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </Button>
-          <Button variant="outline" size="xl" asChild className="group">
-            <Link href="/install">
+
+          {isInstallable ? (
+            <Button
+              variant="outline"
+              size="xl"
+              className="group"
+              onClick={promptInstall}
+            >
               Install App
-              <Smartphone className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            </Link>
-          </Button>
+              <Download className="w-5 h-5 ml-2 group-hover:scale-110 transition-transform" />
+            </Button>
+          ) : (
+            <Button variant="outline" size="xl" asChild className="group">
+              <Link href="/install">
+                Install App
+                <Smartphone className="w-5 h-5 ml-2 group-hover:scale-110 transition-transform" />
+              </Link>
+            </Button>
+          )}
         </div>
 
 

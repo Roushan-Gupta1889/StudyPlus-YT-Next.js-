@@ -3,106 +3,98 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Plus } from "lucide-react";
-import Link from "next/link";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import { useInstallPrompt } from "@/components/providers/InstallProvider";
 
 export function InstallPrompt() {
+  const { isInstallable, promptInstall, hidePrompt } = useInstallPrompt();
   const [isVisible, setIsVisible] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setIsInstalled(true);
-      return;
+    if (isInstallable) {
+      // Check if user previously dismissed the prompt (expires after 7 days)
+      const dismissed = localStorage.getItem("pwa-install-dismissed");
+      if (dismissed) {
+        const dismissedAt = parseInt(dismissed, 10);
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (Date.now() - dismissedAt < sevenDays) {
+          return;
+        }
+        // Expired — remove old flag
+        localStorage.removeItem("pwa-install-dismissed");
+      }
+
+      // Show the custom prompt after 3 seconds
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(false);
     }
-
-    // Check if already dismissed
-    const dismissed = localStorage.getItem("pwa-install-dismissed");
-    if (dismissed) {
-      return;
-    }
-
-    // Listen for install prompt
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-
-    // Show prompt after 15 seconds on both mobile and desktop
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 15000);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-    };
-  }, []);
+  }, [isInstallable]);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") {
-        setIsInstalled(true);
-      }
-      setDeferredPrompt(null);
-    }
+    await promptInstall();
     setIsVisible(false);
   };
 
   const handleDismiss = () => {
-    localStorage.setItem("pwa-install-dismissed", "true");
+    // Store timestamp so dismissal expires after 7 days
+    localStorage.setItem("pwa-install-dismissed", Date.now().toString());
     setIsVisible(false);
+    // Be careful not to call hidePrompt() here if we want other buttons to still work!
+    // But we probably want the banner to go away.
   };
 
-  if (!isVisible || isInstalled) {
+  if (!isVisible) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 max-w-[320px] animate-in slide-in-from-bottom-4 fade-in duration-500">
-      <div className="bg-card border border-border rounded-xl p-4 shadow-xl">
+    <div className="fixed bottom-4 left-4 z-50 max-w-[360px] animate-in slide-in-from-bottom-4 fade-in duration-500">
+      <div className="relative bg-[hsl(var(--card))] border border-border/60 rounded-2xl p-5 shadow-2xl backdrop-blur-xl">
+        {/* Close button */}
         <button
           onClick={handleDismiss}
-          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Dismiss"
+          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-accent"
+          aria-label="Dismiss install prompt"
         >
           <X className="w-4 h-4" />
         </button>
 
+        {/* Icon + Text */}
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0 ring-1 ring-primary/20">
             <Plus className="w-5 h-5 text-primary" />
           </div>
 
           <div className="flex-1 pr-4">
-            <h3 className="font-semibold text-foreground text-sm">Install StudyPlus</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              Add to your home screen for quick access and a better learning experience.
+            <h3 className="font-semibold text-foreground text-sm">
+              Install StudyPlus YT
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Add StudyPlus YT to your home screen for quick access and a better
+              learning experience.
             </p>
           </div>
         </div>
 
+        {/* Action buttons */}
         <div className="flex gap-2 mt-4">
-          {deferredPrompt ? (
-            <Button size="sm" onClick={handleInstall} className="flex-1">
-              Add to home screen
-            </Button>
-          ) : (
-            <Button size="sm" asChild className="flex-1">
-              <Link href="/install">Add to home screen</Link>
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={handleDismiss}>
+          <Button
+            size="sm"
+            onClick={handleInstall}
+            className="flex-1 rounded-lg font-medium"
+          >
+            Add to home screen
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDismiss}
+            className="rounded-lg font-medium"
+          >
             No, thanks
           </Button>
         </div>

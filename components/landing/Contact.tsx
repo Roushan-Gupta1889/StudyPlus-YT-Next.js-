@@ -170,7 +170,7 @@ export function Contact() {
                         <FormItem>
                           <FormLabel>Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="John Doe" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" />
+                            <Input placeholder="John Doe" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" suppressHydrationWarning />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -183,7 +183,7 @@ export function Contact() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="john@example.com" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" />
+                            <Input placeholder="john@example.com" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" suppressHydrationWarning />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -198,7 +198,7 @@ export function Contact() {
                       <FormItem>
                         <FormLabel>Subject</FormLabel>
                         <FormControl>
-                          <Input placeholder="How can we help you?" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" />
+                          <Input placeholder="How can we help you?" {...field} className="bg-background/50 border-border/50 focus:border-primary h-12" suppressHydrationWarning />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -228,6 +228,7 @@ export function Contact() {
                     className="w-full h-12 text-base font-semibold group"
                     size="lg"
                     disabled={isSubmitting}
+                    suppressHydrationWarning
                   >
                     {isSubmitting ? (
                       <span className="flex items-center gap-2">
