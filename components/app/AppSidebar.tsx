@@ -103,28 +103,31 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
 
         {/* Footer */}
         <div className="p-3 border-t border-sidebar-border space-y-2">
-          {/* IITM Curriculum - Special highlight */}
-          <div className="px-2 mb-1">
-            <div className="text-xs font-semibold text-muted-foreground mb-1">IITM BS Programme</div>
-          </div>
-          {specialItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border",
-                  isActive
-                    ? "bg-primary text-primary-foreground border-primary font-medium"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-primary/30"
-                )}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+          {session?.user?.isIITMUser && (
+            <>
+              <div className="px-2 mb-1">
+                <div className="text-xs font-semibold text-muted-foreground mb-1">IITM BS Programme</div>
+              </div>
+              {specialItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-primary/30"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </>
+          )}
 
           <Link
             href="/app/settings"
