@@ -33,6 +33,7 @@ export default function PlaylistsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [importingPlaylistId, setImportingPlaylistId] = useState<string | null>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   // Fetch playlists
@@ -92,7 +93,7 @@ export default function PlaylistsPage() {
 
   const handleImportFromSearch = async (playlist: any) => {
     try {
-      setSubmitting(true);
+      setImportingPlaylistId(playlist.id);
       const response = await fetch("/api/playlists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,7 +116,7 @@ export default function PlaylistsPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to import playlist");
     } finally {
-      setSubmitting(false);
+      setImportingPlaylistId(null);
     }
   };
 
@@ -368,9 +369,9 @@ export default function PlaylistsPage() {
                               <Button
                                 size="sm"
                                 onClick={() => handleImportFromSearch(playlist)}
-                                disabled={submitting}
+                                disabled={importingPlaylistId === playlist.id}
                               >
-                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Import"}
+                                {importingPlaylistId === playlist.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Import"}
                               </Button>
                             </div>
                           </div>
