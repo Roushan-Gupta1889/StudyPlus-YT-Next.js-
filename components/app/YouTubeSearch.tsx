@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Play, BookmarkPlus, Check, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ interface YouTubeSearchProps {
 }
 
 export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<"video" | "playlist">("video");
@@ -104,6 +106,9 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
 
       setSavedItems([...savedItems, video.id]);
       toast.success("Video saved to your library!");
+
+      if (onClose) onClose();
+      router.push("/app/videos");
     } catch (error) {
       console.error("Save video error:", error);
       toast.error("Failed to save video");
