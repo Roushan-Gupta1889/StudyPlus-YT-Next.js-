@@ -13,17 +13,17 @@ import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 const testimonials = [
   {
     quote: "I've tried so many learning apps, but StudyPlus finally helped me actually finish courses instead of just starting them.",
-    author: "Sarah M.",
+    author: "Aditi S.",
     role: "Graduate Student",
     rating: 5,
-    avatar: "SM",
+    avatar: "AS",
   },
   {
     quote: "The timestamp notes feature is a game changer. I can review my notes and jump right back to the important parts.",
-    author: "James K.",
+    author: "Rajesh K.",
     role: "Software Developer",
     rating: 5,
-    avatar: "JK",
+    avatar: "RK",
   },
   {
     quote: "No more rabbit holes. I set my playlist and actually learn what I intended to learn. Simple but powerful.",
@@ -34,17 +34,17 @@ const testimonials = [
   },
   {
     quote: "Finally, a YouTube player that respects my time. The minimal UI keeps me focused on learning, not clicking around.",
-    author: "Michael R.",
+    author: "Vikram R.",
     role: "Data Scientist",
     rating: 5,
-    avatar: "MR",
+    avatar: "VR",
   },
   {
     quote: "I've doubled my course completion rate since switching to StudyPlus. The progress tracking is incredibly motivating.",
-    author: "Emily C.",
+    author: "Sneha C.",
     role: "UX Designer",
     rating: 5,
-    avatar: "EC",
+    avatar: "SC",
   },
 ];
 
