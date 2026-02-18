@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { YouTubeSearch } from "@/components/app/YouTubeSearch";
 import { toast } from "sonner";
+import { QuickAdd } from "@/components/app/QuickAdd";
 
 interface AnalyticsData {
     currentStreak: number;
@@ -175,6 +176,9 @@ export default function DashboardPage() {
                     </div>
                 ))}
             </div>
+
+            {/* Quick Add */}
+            <QuickAdd />
 
             {/* Continue Watching */}
             <section className="mb-8 sm:mb-10">

@@ -279,6 +279,36 @@ export async function searchYouTube(
 }
 
 /**
+ * Fetch playlist details from YouTube API
+ * @throws AppError on failure
+ */
+export async function getPlaylistDetails(playlistId: string): Promise<YouTubePlaylist> {
+    const data = await youtubeApiFetch<any>("playlists", {
+        part: "snippet,contentDetails",
+        id: playlistId,
+    });
+
+    if (!data.items || data.items.length === 0) {
+        throw new AppError(
+            ErrorCode.NOT_FOUND,
+            "Playlist not found",
+            404
+        );
+    }
+
+    const item = data.items[0];
+
+    return {
+        id: item.id,
+        title: item.snippet.title,
+        description: item.snippet.description,
+        thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || "",
+        itemCount: item.contentDetails?.itemCount || 0,
+        channel: item.snippet.channelTitle,
+    };
+}
+
+/**
  * Get videos from a playlist with enforced pagination limit
  * @throws AppError on failure (never returns [])
  */

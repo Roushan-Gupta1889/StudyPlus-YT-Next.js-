@@ -144,51 +144,51 @@ export default function PlaylistsPage() {
     }
   };
 
- const handleAddPlaylist = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleAddPlaylist = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!playlistUrl.trim()) {
-    toast.error("Please enter a playlist URL");
-    return;
-  }
-
-  setSubmitting(true);
-
-  try {
-    const response = await fetch("/api/playlists/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playlistUrl,
-        playlistName: playlistName || undefined,
-      }),
-    });
-
-    const data = await response.json(); // ✅ PARSE FIRST
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error?.message ||
-        data?.message ||
-        "Failed to add playlist"
-      );
+    if (!playlistUrl.trim()) {
+      toast.error("Please enter a playlist URL");
+      return;
     }
 
-    await fetchPlaylists();
+    setSubmitting(true);
 
-    setPlaylistUrl("");
-    setPlaylistName("");
-    setOpen(false);
+    try {
+      const response = await fetch("/api/playlists/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playlistUrl,
+          playlistName: playlistName || undefined,
+        }),
+      });
 
-    toast.success(`Playlist added with ${data.videosAdded} videos!`);
-  } catch (error) {
-    toast.error(
-      error instanceof Error ? error.message : "Failed to add playlist"
-    );
-  } finally {
-    setSubmitting(false);
-  }
-};
+      const data = await response.json(); // ✅ PARSE FIRST
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ||
+          data?.message ||
+          "Failed to add playlist"
+        );
+      }
+
+      await fetchPlaylists();
+
+      setPlaylistUrl("");
+      setPlaylistName("");
+      setOpen(false);
+
+      toast.success(`Playlist added with ${data.videosAdded} videos!`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add playlist"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
 
 
@@ -263,7 +263,7 @@ export default function PlaylistsPage() {
 
           <Dialog open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) { setAddMode("url"); setSearchQuery(""); setSearchResults([]); } }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button suppressHydrationWarning>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Playlist
               </Button>

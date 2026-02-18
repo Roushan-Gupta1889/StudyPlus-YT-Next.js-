@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPlaylistVideos, extractPlaylistId } from "@/lib/youtube";
+import { getPlaylistVideos, extractPlaylistId, getPlaylistDetails } from "@/lib/youtube";
 
 // GET /api/playlists - Fetch user's playlists
 export async function GET(request: NextRequest) {
@@ -57,7 +57,25 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { name, description, youtubeId } = body;
+        let { name, description, youtubeId } = body;
+
+        // If simple quick-add (only URL provided)
+        if (!name && youtubeId) {
+            const extractedId = extractPlaylistId(youtubeId);
+            if (!extractedId) {
+                return NextResponse.json({ error: "Invalid YouTube Playlist URL" }, { status: 400 });
+            }
+
+            try {
+                const details = await getPlaylistDetails(extractedId);
+                youtubeId = details.id; // Store ID, not full URL if possible, though schema might just use it for reference
+                name = details.title;
+                description = details.description;
+            } catch (error) {
+                console.error("Failed to fetch playlist details:", error);
+                return NextResponse.json({ error: "Failed to fetch playlist details" }, { status: 400 });
+            }
+        }
 
         if (!name) {
             return NextResponse.json({ error: "Name is required" }, { status: 400 });

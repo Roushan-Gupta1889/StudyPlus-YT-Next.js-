@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getVideoDetails, extractVideoId } from "@/lib/youtube";
 
 // GET /api/videos - Fetch user's videos
 export async function GET(request: NextRequest) {
@@ -46,7 +47,28 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { youtubeId, title, description, thumbnail, duration, channel } = body;
+        let { youtubeId, title, description, thumbnail, duration, channel } = body;
+
+        // If simple quick-add (only URL provided)
+        if (!title && youtubeId) {
+            const extractedId = extractVideoId(youtubeId);
+            if (!extractedId) {
+                return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
+            }
+
+            try {
+                const details = await getVideoDetails(extractedId);
+                youtubeId = details.id;
+                title = details.title;
+                description = details.description;
+                thumbnail = details.thumbnail;
+                duration = details.duration;
+                channel = details.channel;
+            } catch (error) {
+                console.error("Failed to fetch video details:", error);
+                return NextResponse.json({ error: "Failed to fetch video details" }, { status: 400 });
+            }
+        }
 
         if (!youtubeId || !title) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
