@@ -141,40 +141,52 @@ export default function DashboardPage() {
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2 sm:mb-8">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
-                        Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"},{" "}
-                        {session?.user?.name || "Learner"} 👋
+                        Hi, {session?.user?.name || "Learner"} 👋
                     </h1>
                     <p className="text-sm sm:text-base text-muted-foreground">
                         Ready to continue your learning journey?
                     </p>
                 </div>
-                <Button onClick={() => setShowSearch(!showSearch)} className="gap-2 w-full sm:w-auto">
+                <Button onClick={() => setShowSearch(!showSearch)} className="gap-2 w-full sm:w-auto hidden sm:flex">
                     <Search className="w-4 h-4" />
-                    Search YouTube
+                    {showSearch ? "Close Search" : "Search YouTube"}
                 </Button>
             </div>
 
-            {/* YouTube Search */}
+            {/* YouTube Search (Desktop) */}
             {showSearch && (
-                <div className="mb-6 sm:mb-8">
+                <div className="mb-6 sm:mb-8 hidden sm:block">
                     <YouTubeSearch onClose={() => setShowSearch(false)} />
                 </div>
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8 sm:mb-10">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-2 sm:mb-10">
                 {stats.map((stat) => (
-                    <div key={stat.label} className="bg-card rounded-2xl border border-border p-4 sm:p-5">
-                        <div className="flex items-center gap-3 mb-2">
-                            <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                            <span className="text-sm text-muted-foreground">{stat.label}</span>
+                    <div key={stat.label} className="bg-card rounded-xl sm:rounded-2xl border border-border p-3 sm:p-5 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                            <stat.icon className={`w-3.5 h-3.5 sm:w-5 sm:h-5 ${stat.color}`} />
+                            <span className="text-[10px] sm:text-sm text-muted-foreground font-medium truncate">{stat.label}</span>
                         </div>
-                        <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
+                        <p className="text-lg sm:text-2xl font-bold text-foreground">{stat.value}</p>
                     </div>
                 ))}
+            </div>
+
+            {/* Mobile Search Button & Area */}
+            <div className="sm:hidden mb-2">
+                <Button
+                    onClick={() => setShowSearch(!showSearch)}
+                    className={`w-full gap-2 ${showSearch ? "mb-4" : ""}`}
+                    variant={showSearch ? "secondary" : "default"}
+                >
+                    <Search className="w-4 h-4" />
+                    {showSearch ? "Close Search" : "Search YouTube"}
+                </Button>
+                {showSearch && <YouTubeSearch onClose={() => setShowSearch(false)} />}
             </div>
 
             {/* Quick Add */}
