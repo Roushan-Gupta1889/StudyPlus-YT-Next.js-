@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { TrendingUp, Clock, Target, Award, Loader2, BarChart } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { TrendingUp, Clock, Target, Award, Loader2, BarChart2, Flame, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 interface AnalyticsData {
@@ -14,6 +13,121 @@ interface AnalyticsData {
     weeklyActivity: Array<{ date: string; watchTime: number; count: number }>;
 }
 
+// ─── Bar Chart ────────────────────────────────────────────────────────────────
+
+interface BarData {
+    day: string;
+    hours: number;
+    count: number;
+    isToday: boolean;
+}
+
+function ActivityBar({
+    data,
+    maxHours,
+    index,
+}: {
+    data: BarData;
+    maxHours: number;
+    index: number;
+}) {
+    const [animated, setAnimated] = useState(false);
+    const hasActivity = data.hours > 0;
+    const heightPercent = maxHours > 0 ? (data.hours / maxHours) * 100 : 0;
+    const finalHeight = hasActivity ? Math.max(heightPercent, 4) : 0;
+
+    useEffect(() => {
+        const t = setTimeout(() => setAnimated(true), 100 + index * 80);
+        return () => clearTimeout(t);
+    }, [index]);
+
+    const isToday = data.isToday;
+
+    const barGradient = isToday
+        ? "linear-gradient(to top, hsl(234 85% 42%), hsl(270 70% 62%))"
+        : "linear-gradient(to top, hsl(234 75% 52%), hsl(234 65% 68%))";
+
+    const glowColor = isToday
+        ? "0 4px 20px 2px hsl(260 70% 55% / 0.45)"
+        : "0 4px 12px 1px hsl(234 85% 60% / 0.25)";
+
+    return (
+        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+            {/* Always-visible hour label above bar */}
+            <div className="h-6 flex items-end justify-center">
+                <span
+                    className={`text-[11px] font-semibold leading-none transition-all duration-500 ${animated && hasActivity
+                        ? isToday ? "text-primary opacity-100" : "text-foreground/80 opacity-100"
+                        : "opacity-0"
+                        }`}
+                >
+                    {hasActivity
+                        ? data.hours < 1
+                            ? `${Math.round(data.hours * 60)}m`
+                            : `${data.hours.toFixed(1)}h`
+                        : ""}
+                </span>
+            </div>
+
+            {/* Bar column */}
+            <div className="w-full flex flex-col justify-end flex-1 relative">
+                {/* Zero-activity placeholder */}
+                {!hasActivity && (
+                    <div className="w-full h-1.5 rounded-full border-2 border-dashed border-border/50" />
+                )}
+
+                {/* The bar */}
+                {hasActivity && (
+                    <div
+                        className="w-full rounded-t-xl relative overflow-hidden"
+                        style={{
+                            height: animated ? `${finalHeight}%` : "0%",
+                            background: barGradient,
+                            boxShadow: animated ? glowColor : "none",
+                            transitionProperty: "height, box-shadow",
+                            transitionDuration: "0.65s",
+                            transitionTimingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)",
+                        }}
+                    >
+                        {/* Sheen */}
+                        <div
+                            className="absolute inset-0"
+                            style={{
+                                background: "linear-gradient(to right, transparent, rgba(255,255,255,0.15), transparent)",
+                            }}
+                        />
+                        {/* Today pulse dot */}
+                        {isToday && animated && (
+                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white/90 shadow-md animate-pulse" />
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Day name */}
+            <span
+                className={`text-[11px] font-semibold leading-tight ${isToday ? "text-primary" : "text-muted-foreground"
+                    }`}
+            >
+                {data.day}
+            </span>
+
+            {/* Video count or Today pill */}
+            {isToday ? (
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/15 text-primary leading-none">
+                    Today
+                </span>
+            ) : (
+                <span className="text-[10px] text-muted-foreground/60 leading-none">
+                    {hasActivity ? `${data.count}v` : "—"}
+                </span>
+            )}
+        </div>
+    );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function AnalyticsPage() {
     const { data: session } = useSession();
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -23,9 +137,7 @@ export default function AnalyticsPage() {
     const formatTime = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
-        if (hours > 0) {
-            return `${hours}h ${minutes}m`;
-        }
+        if (hours > 0) return `${hours}h ${minutes}m`;
         return `${minutes}m`;
     };
 
@@ -33,15 +145,11 @@ export default function AnalyticsPage() {
         const fetchAnalytics = async () => {
             try {
                 setIsLoading(true);
-
-                // Fetch analytics
                 const analyticsRes = await fetch("/api/analytics");
                 if (analyticsRes.ok) {
                     const data = await analyticsRes.json();
                     setAnalytics(data);
                 }
-
-                // Fetch notes count
                 const notesRes = await fetch("/api/notes");
                 if (notesRes.ok) {
                     const notes = await notesRes.json();
@@ -55,209 +163,327 @@ export default function AnalyticsPage() {
             }
         };
 
-        if (session) {
-            fetchAnalytics();
-        }
+        if (session) fetchAnalytics();
     }, [session]);
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground animate-pulse">Loading your stats…</p>
             </div>
         );
     }
 
     if (!analytics) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen p-8">
-                <BarChart className="w-16 h-16 text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-bold text-foreground mb-2">No Analytics Yet</h2>
-                <p className="text-muted-foreground text-center">
-                    Start watching videos to see your learning analytics
-                </p>
+            <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-6">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <BarChart2 className="w-10 h-10 text-primary" />
+                </div>
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-foreground mb-2">No Analytics Yet</h2>
+                    <p className="text-muted-foreground">Start watching videos to see your learning analytics</p>
+                </div>
             </div>
         );
     }
+
+    // ── Stats ──────────────────────────────────────────────────────────────────
 
     const stats = [
         {
             icon: Clock,
             label: "Total Watch Time",
             value: formatTime(analytics.totalWatchTime),
-            change: analytics.totalWatchTime > 0 ? "Keep learning!" : "Start watching",
-            color: "text-primary",
+            sub: analytics.totalWatchTime > 0 ? "Keep learning!" : "Start watching",
+            iconBg: "bg-primary/10",
+            iconColor: "text-primary",
+            accentColor: "border-primary/30",
         },
         {
             icon: Target,
             label: "Videos Completed",
             value: analytics.videosCompleted.toString(),
-            change: analytics.videosCompleted > 0 ? `${analytics.videosCompleted} finished` : "Complete your first",
-            color: "text-success",
+            sub: analytics.videosCompleted > 0 ? `${analytics.videosCompleted} finished` : "Complete your first",
+            iconBg: "bg-emerald-500/10",
+            iconColor: "text-emerald-500",
+            accentColor: "border-emerald-500/30",
         },
         {
-            icon: TrendingUp,
+            icon: Flame,
             label: "Current Streak",
-            value: `${analytics.currentStreak} day${analytics.currentStreak !== 1 ? 's' : ''}`,
-            change: analytics.longestStreak > analytics.currentStreak
-                ? `Best: ${analytics.longestStreak} days`
-                : "Personal best!",
-            color: "text-orange-500",
+            value: `${analytics.currentStreak}d`,
+            sub:
+                analytics.longestStreak > analytics.currentStreak
+                    ? `Best: ${analytics.longestStreak} days`
+                    : "Personal best! 🔥",
+            iconBg: "bg-orange-500/10",
+            iconColor: "text-orange-500",
+            accentColor: "border-orange-500/30",
         },
         {
-            icon: Award,
+            icon: BookOpen,
             label: "Notes Created",
             value: notesCount.toString(),
-            change: notesCount > 0 ? "Great notes!" : "Add your first note",
-            color: "text-purple-500",
+            sub: notesCount > 0 ? "Great notes!" : "Add your first note",
+            iconBg: "bg-purple-500/10",
+            iconColor: "text-purple-500",
+            accentColor: "border-purple-500/30",
         },
     ];
 
-    // Process weekly data for chart
-    const weeklyData = analytics.weeklyActivity.map((day) => {
-        const date = new Date(day.date);
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    // ── Chart data ─────────────────────────────────────────────────────────────
+
+    const todayStr = new Date().toDateString();
+
+    // Build a full 7-day grid for the current week (Mon → Sun)
+    // so all 7 bars are always visible, even with no activity
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun … 6=Sat
+    // Start from Monday of the current week
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+
+    const shortDay = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // Index the API data by date string for fast lookup
+    const activityMap = new Map<string, { watchTime: number; count: number }>();
+    analytics.weeklyActivity.forEach((d) => {
+        activityMap.set(new Date(d.date).toDateString(), {
+            watchTime: d.watchTime,
+            count: d.count,
+        });
+    });
+
+    const weeklyData: BarData[] = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        const key = date.toDateString();
+        const activity = activityMap.get(key) ?? { watchTime: 0, count: 0 };
         return {
-            day: dayNames[date.getDay()],
-            hours: day.watchTime / 3600, // Convert seconds to hours
-            count: day.count,
+            day: shortDay[date.getDay()],
+            hours: activity.watchTime / 3600,
+            count: activity.count,
+            isToday: key === todayStr,
         };
     });
 
-    const maxHours = weeklyData.length > 0 ? Math.max(...weeklyData.map((d) => d.hours)) : 1;
+    const maxHours = Math.max(...weeklyData.map((d) => d.hours), 0.1);
     const thisWeekTotal = weeklyData.reduce((acc, d) => acc + d.hours, 0);
+
+    // Y-axis labels (0 → maxHours in 4 steps)
+    const ySteps = 4;
+    const yLabels = Array.from({ length: ySteps + 1 }, (_, i) =>
+        parseFloat(((maxHours / ySteps) * (ySteps - i)).toFixed(1))
+    );
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground mb-1">Learning Analytics</h1>
+            {/* ── Header ─────────────────────────────────────────────────────── */}
+            <div className="mb-8 animate-fade-in-up">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">Learning Analytics</h1>
                 <p className="text-muted-foreground">Track your progress and learning patterns</p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                {stats.map((stat) => (
-                    <Card key={stat.label} className="p-5">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className={`${stat.color}`}>
-                                <stat.icon className="w-5 h-5" />
-                            </div>
-                            <span className="text-sm text-muted-foreground">{stat.label}</span>
+            {/* ── Stat Cards ─────────────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
+                {stats.map((stat, i) => (
+                    <div
+                        key={stat.label}
+                        className={`bg-card rounded-2xl border ${stat.accentColor} p-4 sm:p-5 flex flex-col
+                                   hover:shadow-card transition-all duration-300 hover:scale-[1.02]
+                                   animate-fade-in-up`}
+                        style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}
+                    >
+                        <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center mb-3`}>
+                            <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
                         </div>
-                        <p className="text-2xl font-bold text-foreground mb-1">{stat.value}</p>
-                        <p className="text-xs text-muted-foreground">{stat.change}</p>
-                    </Card>
+                        <p className="text-xs text-muted-foreground mb-1 font-medium">{stat.label}</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">{stat.value}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
+                    </div>
                 ))}
             </div>
 
-            {/* Weekly Chart */}
-            <Card className="p-6 mb-6">
+            {/* ── Weekly Activity Chart ───────────────────────────────────────── */}
+            <div
+                className="bg-card rounded-2xl border border-border p-5 sm:p-6 mb-6 animate-fade-in-up"
+                style={{ animationDelay: "320ms", animationFillMode: "both" }}
+            >
+                {/* Chart header */}
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-semibold text-foreground">This Week's Activity</h2>
-                    <span className="text-sm text-muted-foreground">
-                        {formatTime(Math.floor(thisWeekTotal * 3600))} total
-                    </span>
+                    <div>
+                        <h2 className="text-lg font-semibold text-foreground">This Week&apos;s Activity</h2>
+                        <p className="text-sm text-muted-foreground mt-0.5">Daily learning hours</p>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-lg font-bold text-foreground">
+                            {formatTime(Math.floor(thisWeekTotal * 3600))}
+                        </span>
+                        <p className="text-xs text-muted-foreground">this week</p>
+                    </div>
                 </div>
+
                 {weeklyData.length > 0 ? (
-                    <div className="flex items-end justify-between gap-3 h-64">
-                        {weeklyData.map((data, idx) => {
-                            const heightPercent = maxHours > 0 ? (data.hours / maxHours) * 100 : 0;
-                            return (
-                                <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                                    <div className="w-full flex flex-col justify-end h-full">
-                                        <div
-                                            className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary/80 relative group"
-                                            style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                                        >
-                                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground px-2 py-1 rounded text-xs whitespace-nowrap border border-border">
-                                                <div>{data.hours.toFixed(1)}h</div>
-                                                <div className="text-[10px] text-muted-foreground">{data.count} videos</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span className="text-xs text-muted-foreground font-medium">{data.day}</span>
-                                </div>
-                            );
-                        })}
+                    <div className="flex gap-4">
+                        {/* Y-axis */}
+                        <div className="flex flex-col justify-between pb-7 text-right w-9 flex-shrink-0">
+                            {yLabels.map((label, i) => (
+                                <span key={i} className="text-[10px] text-muted-foreground leading-none">
+                                    {label > 0 ? `${label}h` : ""}
+                                </span>
+                            ))}
+                        </div>
+
+                        {/* Chart area */}
+                        <div className="flex-1 relative">
+                            {/* Guide lines */}
+                            <div className="absolute inset-0 pb-7 flex flex-col justify-between pointer-events-none">
+                                {yLabels.map((label, i) => (
+                                    <div
+                                        key={i}
+                                        className="w-full border-t border-dashed border-border/50"
+                                        style={{ opacity: i === yLabels.length - 1 ? 1 : 0.6 }}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Bars */}
+                            <div className="flex items-stretch justify-between gap-1.5 sm:gap-2 h-64 relative z-10">
+                                {weeklyData.map((data, idx) => (
+                                    <ActivityBar
+                                        key={idx}
+                                        data={data}
+                                        maxHours={maxHours}
+                                        index={idx}
+                                    />
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 ) : (
-                    <div className="h-64 flex items-center justify-center text-muted-foreground">
-                        No activity this week - start watching to see your progress!
+                    <div className="flex flex-col items-center justify-center h-56 gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                            <BarChart2 className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground text-center">
+                            No activity this week — start watching to see your progress!
+                        </p>
                     </div>
                 )}
-            </Card>
+            </div>
 
-            {/* Additional Insights */}
-            <div className="grid sm:grid-cols-2 gap-6">
-                <Card className="p-6">
-                    <h3 className="font-semibold text-foreground mb-4">Learning Stats</h3>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Average per day</span>
-                            <span className="text-sm font-medium text-foreground">
-                                {weeklyData.length > 0
-                                    ? formatTime(Math.floor((thisWeekTotal / weeklyData.length) * 3600))
-                                    : "0m"}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Longest streak</span>
-                            <span className="text-sm font-medium text-foreground">
-                                {analytics.longestStreak} day{analytics.longestStreak !== 1 ? "s" : ""}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Total videos</span>
-                            <span className="text-sm font-medium text-foreground">
-                                {analytics.videosCompleted} completed
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Total notes</span>
-                            <span className="text-sm font-medium text-foreground">{notesCount} created</span>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-6">
-                    <h3 className="font-semibold text-foreground mb-4">Keep Going! 🚀</h3>
-                    <div className="space-y-4">
-                        {analytics.currentStreak > 0 && (
-                            <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <TrendingUp className="w-4 h-4 text-primary" />
-                                    <span className="text-sm font-medium text-foreground">Current Streak</span>
+            {/* ── Bottom Insights ─────────────────────────────────────────────── */}
+            <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                {/* Learning Stats */}
+                <div
+                    className="bg-card rounded-2xl border border-border p-5 sm:p-6 animate-fade-in-up"
+                    style={{ animationDelay: "400ms", animationFillMode: "both" }}
+                >
+                    <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        Learning Stats
+                    </h3>
+                    <div className="space-y-3">
+                        {[
+                            {
+                                label: "Average per day",
+                                value:
+                                    weeklyData.length > 0
+                                        ? formatTime(Math.floor((thisWeekTotal / weeklyData.length) * 3600))
+                                        : "0m",
+                                dot: "bg-primary",
+                            },
+                            {
+                                label: "Longest streak",
+                                value: `${analytics.longestStreak} day${analytics.longestStreak !== 1 ? "s" : ""}`,
+                                dot: "bg-orange-500",
+                            },
+                            {
+                                label: "Total videos",
+                                value: `${analytics.videosCompleted} completed`,
+                                dot: "bg-emerald-500",
+                            },
+                            {
+                                label: "Total notes",
+                                value: `${notesCount} created`,
+                                dot: "bg-purple-500",
+                            },
+                        ].map((row, i) => (
+                            <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${row.dot}`} />
+                                    <span className="text-sm text-muted-foreground">{row.label}</span>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    You've watched videos for {analytics.currentStreak} consecutive days. Keep it up!
-                                </p>
+                                <span className="text-sm font-semibold text-foreground">{row.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Keep Going */}
+                <div
+                    className="bg-card rounded-2xl border border-border p-5 sm:p-6 animate-fade-in-up"
+                    style={{ animationDelay: "480ms", animationFillMode: "both" }}
+                >
+                    <h3 className="font-semibold text-foreground mb-4">Keep Going! 🚀</h3>
+                    <div className="space-y-3">
+                        {analytics.currentStreak > 0 && (
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-orange-500/8 border border-orange-500/20">
+                                <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Flame className="w-4 h-4 text-orange-500" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">
+                                        {analytics.currentStreak}-Day Streak 🔥
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        You&apos;ve watched videos for {analytics.currentStreak} consecutive days!
+                                    </p>
+                                </div>
                             </div>
                         )}
                         {analytics.videosCompleted >= 10 && (
-                            <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Award className="w-4 h-4 text-success" />
-                                    <span className="text-sm font-medium text-foreground">Milestone Achieved</span>
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-500/8 border border-emerald-500/20">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Award className="w-4 h-4 text-emerald-500" />
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    You've completed {analytics.videosCompleted} videos! Great progress!
-                                </p>
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Milestone Unlocked 🏆</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {analytics.videosCompleted} videos completed — great progress!
+                                    </p>
+                                </div>
                             </div>
                         )}
                         {thisWeekTotal > 0 && (
-                            <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Clock className="w-4 h-4 text-orange-500" />
-                                    <span className="text-sm font-medium text-foreground">This Week</span>
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/8 border border-primary/20">
+                                <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Clock className="w-4 h-4 text-primary" />
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {formatTime(Math.floor(thisWeekTotal * 3600))} of learning time this week!
-                                </p>
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Active This Week ⚡</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {formatTime(Math.floor(thisWeekTotal * 3600))} of focused learning time!
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {analytics.currentStreak === 0 && analytics.videosCompleted < 10 && thisWeekTotal === 0 && (
+                            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+                                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                                    <TrendingUp className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Start your journey!</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Watch videos to earn achievements</p>
+                                </div>
                             </div>
                         )}
                     </div>
-                </Card>
+                </div>
             </div>
         </div>
     );
