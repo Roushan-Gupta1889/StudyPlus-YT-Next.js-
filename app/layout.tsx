@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { InstallPrompt } from "@/components/landing/InstallPrompt";
 import { InstallProvider } from "@/components/providers/InstallProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
             </InstallProvider>
           </AuthProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
