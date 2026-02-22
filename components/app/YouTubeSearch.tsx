@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Play, BookmarkPlus, Check, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useDebounce } from "@/hooks/useDebounce";
 
 interface YouTubeVideo {
   id: string;
@@ -30,8 +29,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
   const [savedItems, setSavedItems] = useState<string[]>([]);
   const [importingPlaylistId, setImportingPlaylistId] = useState<string | null>(null);
 
-  // Debounce search query (500ms delay)
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -45,7 +43,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
   };
 
   const handleSearch = useCallback(async (query: string, type: string) => {
-    if (!query.trim()) {
+    if (query.trim().length < 3) {
       setVideos([]);
       return;
     }
@@ -78,12 +76,11 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
     }
   }, []);
 
-  // Auto-search when debounced query changes or tab changes
-  useEffect(() => {
-    if (debouncedSearchQuery) {
-      handleSearch(debouncedSearchQuery, activeTab);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch(searchQuery, activeTab);
     }
-  }, [debouncedSearchQuery, activeTab, handleSearch]);
+  };
 
   const handleSaveVideo = async (video: any) => {
     try {
@@ -178,14 +175,23 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
             </Button>
           )}
         </div>
-        <div className="relative">
+        <div className="relative flex items-center">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder={`Search ${activeTab}s...`}
+            placeholder={`Search ${activeTab}s…`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            onKeyDown={handleKeyDown}
+            className="pl-10 pr-24"
           />
+          <button
+            onClick={() => handleSearch(searchQuery, activeTab)}
+            disabled={isSearching || searchQuery.trim().length < 3}
+            className="absolute right-2 flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground border border-border hover:bg-accent hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span>↵</span>
+            <span>Enter</span>
+          </button>
         </div>
         {isSearching && (
           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
