@@ -6,8 +6,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Play, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { FloatingInput } from "@/components/ui/FloatingInput"
 import {
     Card,
     CardContent,
@@ -94,18 +93,16 @@ export default function LoginPage() {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div>
+                                <FloatingInput
                                     id="email"
+                                    label="Email"
                                     type="email"
-                                    placeholder="you@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
                                     disabled={loading}
-                                    className="bg-background/50"
                                     onFocus={() => setShowIITMHint(true)}
                                     onBlur={() => setShowIITMHint(false)}
                                 />
@@ -130,16 +127,15 @@ export default function LoginPage() {
                                     </div>
                                 )}
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
+                            <div>
+                                <FloatingInput
                                     id="password"
+                                    label="Password"
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     disabled={loading}
-                                    className="bg-background/50"
                                 />
                             </div>
                             <Button type="submit" className="w-full" disabled={loading}>

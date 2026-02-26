@@ -6,8 +6,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Play, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { FloatingInput } from "@/components/ui/FloatingInput"
 import {
     Card,
     CardContent,
@@ -118,36 +117,32 @@ export default function SignupPage() {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Full Name</Label>
-                                <Input
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div>
+                                <FloatingInput
                                     id="name"
+                                    label="Full Name"
                                     type="text"
-                                    placeholder="John Doe"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     required
                                     disabled={loading}
-                                    className="bg-background/50"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
+                            <div>
+                                <FloatingInput
                                     id="email"
+                                    label="Email"
                                     type="email"
-                                    placeholder="you@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
                                     disabled={loading}
-                                    className="bg-background/50"
                                     onFocus={() => setShowIITMHint(true)}
                                     onBlur={() => setShowIITMHint(false)}
                                 />
                                 {isIITM ? (
-                                    <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-1">
+                                    <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1 mt-2">
                                         <span>✓</span>
                                         <span>IITM email detected - You&apos;ll get access to curated BS course content!</span>
                                     </p>
@@ -167,19 +162,17 @@ export default function SignupPage() {
                                     </div>
                                 )}
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
+                            <div>
+                                <FloatingInput
                                     id="password"
+                                    label="Password (min. 8 characters)"
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     disabled={loading}
                                     minLength={8}
-                                    className="bg-background/50"
                                 />
-                                <p className="text-xs text-muted-foreground">At least 8 characters</p>
                             </div>
 
                             <Button type="submit" className="w-full" disabled={loading}>

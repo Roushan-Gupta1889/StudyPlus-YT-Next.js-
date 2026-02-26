@@ -166,6 +166,59 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* ── Floating Label Input ── */
+  .floating-input-box {
+    position: relative;
+  }
+
+  .floating-input {
+    width: 100%;
+    padding: 18px 14px 6px 14px;
+    border: 1px solid hsl(var(--border));
+    border-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--background) / 0.5);
+    color: hsl(var(--foreground));
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    line-height: 1.5;
+  }
+
+  .floating-input:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+  }
+
+  .floating-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .floating-label {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    color: hsl(var(--muted-foreground));
+    font-size: 0.875rem;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    line-height: 1;
+  }
+
+  /* Float up — pill sits ON the border line, covering it */
+  .floating-input:focus ~ .floating-label,
+  .floating-input:not(:placeholder-shown) ~ .floating-label {
+    top: 0px;
+    transform: translateY(-50%);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: hsl(var(--primary-foreground));
+    background-color: hsl(var(--primary));
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
 }
 
 @layer utilities {
