@@ -136,7 +136,7 @@ export default function IITMCurriculumPage() {
             if (playlistsRes.ok) {
                 const playlists = await playlistsRes.json();
                 const existingPlaylist = playlists.find((p: any) =>
-                    p.name === course.title
+                    p.name === course.title && p.isIITM === true
                 );
 
                 if (existingPlaylist) {
@@ -166,6 +166,7 @@ export default function IITMCurriculumPage() {
                 body: JSON.stringify({
                     name: course.title,
                     youtubeId: `https://www.youtube.com/playlist?list=${course.youtubePlaylistId}`,
+                    isIITM: true,
                 }),
             });
 

@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        let { name, description, youtubeId } = body;
+        let { name, description, youtubeId, isIITM } = body;
 
         // If simple quick-add (only URL provided)
         if (!name && youtubeId) {
@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
                     userId: session.user.id,
                     name,
                     description,
+                    isIITM: !!isIITM,
                 },
             });
 
@@ -156,6 +157,7 @@ export async function POST(request: NextRequest) {
                     userId: session.user.id,
                     name,
                     description,
+                    isIITM: !!isIITM,
                 },
             });
         }

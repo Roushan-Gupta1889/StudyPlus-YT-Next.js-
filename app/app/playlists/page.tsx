@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Trash2, Play, Search } from "lucide-react";
+import { Plus, Loader2, Trash2, Play, Search, GraduationCap, Lock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -14,6 +15,7 @@ interface Playlist {
   id: string;
   name: string;
   description?: string;
+  isIITM?: boolean;
   createdAt: string;
   thumbnail?: string | null;
   _count?: {
@@ -35,6 +37,10 @@ export default function PlaylistsPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [importingPlaylistId, setImportingPlaylistId] = useState<string | null>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
+  // Split playlists into IITM and general
+  const iitmPlaylists = playlists.filter((p) => p.isIITM);
+  const generalPlaylists = playlists.filter((p) => !p.isIITM);
 
   // Fetch playlists
   useEffect(() => {
@@ -212,16 +218,16 @@ export default function PlaylistsPage() {
   };
 
   const handleClearAll = async () => {
-    if (playlists.length === 0) {
+    if (generalPlaylists.length === 0) {
       toast.error("No playlists to clear");
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete ALL ${playlists.length} playlists? This cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to delete ALL ${generalPlaylists.length} playlists? IITM course playlists will be kept. This cannot be undone.`)) return;
 
     try {
-      // Delete all playlists in parallel
-      const deletePromises = playlists.map(playlist =>
+      // Delete only general playlists (not IITM)
+      const deletePromises = generalPlaylists.map(playlist =>
         fetch(`/api/playlists/delete`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -231,12 +237,82 @@ export default function PlaylistsPage() {
 
       await Promise.all(deletePromises);
 
-      setPlaylists([]);
-      toast.success("All playlists cleared successfully");
+      setPlaylists(playlists.filter((p) => p.isIITM));
+      toast.success("All general playlists cleared successfully");
     } catch (error) {
       toast.error("Failed to clear all playlists");
     }
   };
+
+  // Shared playlist card renderer
+  const renderPlaylistCard = (playlist: Playlist, isIITMCard: boolean) => (
+    <Link key={playlist.id} href={`/app/playlists/${playlist.id}`}>
+      <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
+        {/* Thumbnail Section */}
+        <div
+          className="flex-1 relative group bg-muted"
+          style={{
+            backgroundImage: playlist.thumbnail ? `url(${playlist.thumbnail})` : undefined,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            minHeight: "180px",
+          }}
+        >
+          {/* IITM Badge */}
+          {isIITMCard && (
+            <div className="absolute top-2 left-2 z-10">
+              <Badge className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-2 py-1">
+                <GraduationCap className="w-3 h-3 mr-1" />
+                IITM Course
+              </Badge>
+            </div>
+          )}
+
+          {/* Delete Button (only for general playlists) */}
+          {!isIITMCard && (
+            <div className="absolute top-2 right-2 z-10">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeletePlaylist(playlist.id);
+                }}
+                className="text-destructive hover:bg-destructive/10 bg-white/80 hover:bg-white"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* Locked icon for IITM playlists */}
+          {isIITMCard && (
+            <div className="absolute top-2 right-2 z-10">
+              <div className="bg-white/80 rounded-md p-1.5" title="IITM course playlists cannot be deleted">
+                <Lock className="w-4 h-4 text-indigo-600" />
+              </div>
+            </div>
+          )}
+
+          {/* Hover Overlay */}
+          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
+        </div>
+
+        {/* Info Section - Below Thumbnail */}
+        <div className="p-4 bg-card">
+          <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
+            {playlist.name}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-2">
+            {playlist._count?.videos || 0} video{(playlist._count?.videos || 0) !== 1 ? "s" : ""}
+          </p>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {playlist.description}
+          </p>
+        </div>
+      </Card>
+    </Link>
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
@@ -250,7 +326,7 @@ export default function PlaylistsPage() {
         </div>
 
         <div className="flex gap-2">
-          {playlists.length > 0 && (
+          {generalPlaylists.length > 0 && (
             <Button
               variant="outline"
               onClick={handleClearAll}
@@ -406,54 +482,48 @@ export default function PlaylistsPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {playlists.map((playlist) => (
-            <Link key={playlist.id} href={`/app/playlists/${playlist.id}`}>
-              <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
-                {/* Thumbnail Section */}
-                <div
-                  className="flex-1 relative group bg-muted"
-                  style={{
-                    backgroundImage: playlist.thumbnail ? `url(${playlist.thumbnail})` : undefined,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    minHeight: "180px",
-                  }}
-                >
-                  {/* Delete Button */}
-                  <div className="absolute top-2 right-2 z-10">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleDeletePlaylist(playlist.id);
-                      }}
-                      className="text-destructive hover:bg-destructive/10 bg-white/80 hover:bg-white"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+        <div className="space-y-8">
+          {/* 🎓 IITM BS Courses Section */}
+          {iitmPlaylists.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <GraduationCap className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-lg font-semibold text-foreground">IITM BS Courses</h2>
+                <Badge variant="secondary" className="text-xs">
+                  {iitmPlaylists.length}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {iitmPlaylists.map((playlist) => renderPlaylistCard(playlist, true))}
+              </div>
+            </div>
+          )}
 
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
-                </div>
-
-                {/* Info Section - Below Thumbnail */}
-                <div className="p-4 bg-card">
-                  <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
-                    {playlist.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {playlist._count?.videos || 0} video{(playlist._count?.videos || 0) !== 1 ? "s" : ""}
-                  </p>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {playlist.description}
-                  </p>
-                </div>
+          {/* 📚 My Playlists Section */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Play className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">My Playlists</h2>
+              <Badge variant="secondary" className="text-xs">
+                {generalPlaylists.length}
+              </Badge>
+            </div>
+            {generalPlaylists.length === 0 ? (
+              <Card className="p-8 text-center border-dashed">
+                <p className="text-muted-foreground mb-4">
+                  No custom playlists yet. Add one to get started!
+                </p>
+                <Button variant="outline" onClick={() => setOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Playlist
+                </Button>
               </Card>
-            </Link>
-          ))}
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {generalPlaylists.map((playlist) => renderPlaylistCard(playlist, false))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
