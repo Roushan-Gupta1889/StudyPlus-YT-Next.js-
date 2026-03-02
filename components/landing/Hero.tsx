@@ -10,7 +10,7 @@ export function Hero() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent text-accent-foreground text-sm font-medium mb-8 animate-fade-in hover:scale-105 transition-transform cursor-default">
             <Sparkles className="w-4 h-4 text-primary animate-pulse-soft" />
-            Now in public beta
+            Now in public beta(Stay Tuned)
           </div>
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-[1.1] tracking-tight mb-6 animate-fade-in-up text-balance">
