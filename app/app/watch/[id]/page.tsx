@@ -557,16 +557,30 @@ export default function WatchPage({
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 mb-6">
-                <TabsTrigger value="description">Description</TabsTrigger>
-                <TabsTrigger value="notes">
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Notes
-                </TabsTrigger>
-                <TabsTrigger value="comments">Comments</TabsTrigger>
-                <TabsTrigger value="attachments">Attachments</TabsTrigger>
-                <TabsTrigger value="ai">AI Assistant</TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mb-6">
+                <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-5 h-auto sm:h-10 p-1 gap-1 sm:gap-0">
+                  <TabsTrigger value="description" className="px-3 py-2 text-xs sm:text-sm">
+                    <span className="sm:hidden">Desc</span>
+                    <span className="hidden sm:inline">Description</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="notes" className="px-3 py-2 text-xs sm:text-sm">
+                    <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                    Notes
+                  </TabsTrigger>
+                  <TabsTrigger value="comments" className="px-3 py-2 text-xs sm:text-sm">
+                    <span className="sm:hidden">Chat</span>
+                    <span className="hidden sm:inline">Comments</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="attachments" className="px-3 py-2 text-xs sm:text-sm">
+                    <span className="sm:hidden">Files</span>
+                    <span className="hidden sm:inline">Attachments</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="ai" className="px-3 py-2 text-xs sm:text-sm">
+                    <span className="sm:hidden">AI</span>
+                    <span className="hidden sm:inline">AI Assistant</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="description" className="space-y-4">
                 <Card className="p-6">
