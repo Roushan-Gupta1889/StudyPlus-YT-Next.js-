@@ -3,6 +3,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/app/AppSidebar";
+import { RotateBanner } from "@/components/app/RotateBanner";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
 
@@ -78,6 +79,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 )}
                 {children}
             </main>
+
+            {/* Mobile rotate suggestion banner */}
+            <RotateBanner />
         </div>
     );
 }
