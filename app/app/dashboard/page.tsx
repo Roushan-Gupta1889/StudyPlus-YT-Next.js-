@@ -132,8 +132,9 @@ export default function DashboardPage() {
 
     if (isLoading) {
         return (
-            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground animate-pulse">Loading your dashboard…</p>
             </div>
         );
     }

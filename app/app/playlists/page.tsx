@@ -452,8 +452,9 @@ export default function PlaylistsPage() {
 
       {/* Loading State */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground animate-pulse">Loading your playlists…</p>
         </div>
       ) : playlists.length === 0 ? (
         <Card className="p-12 text-center">

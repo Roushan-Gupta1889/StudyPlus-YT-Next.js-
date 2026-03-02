@@ -40,76 +40,77 @@ export default function PlaylistDetailPage({
   }, [id]);
 
   const fetchPlaylistDetails = async () => {
-  try {
-    // Fetch playlist info
-    const playlistRes = await fetch(`/api/playlists/${id}`);
-    const playlistData = await playlistRes.json(); // ✅ parse FIRST
+    try {
+      // Fetch playlist info
+      const playlistRes = await fetch(`/api/playlists/${id}`);
+      const playlistData = await playlistRes.json(); // ✅ parse FIRST
 
-    if (!playlistRes.ok) {
-      throw new Error(
-        playlistData?.error?.message ||
-        playlistData?.message ||
-        "Failed to fetch playlist"
+      if (!playlistRes.ok) {
+        throw new Error(
+          playlistData?.error?.message ||
+          playlistData?.message ||
+          "Failed to fetch playlist"
+        );
+      }
+
+      setPlaylist(playlistData);
+
+      // Fetch videos in playlist
+      const videosRes = await fetch(`/api/playlists/${id}/videos`);
+      const videosData = await videosRes.json(); // ✅ parse FIRST
+
+      if (!videosRes.ok) {
+        throw new Error(
+          videosData?.error?.message ||
+          videosData?.message ||
+          "Failed to fetch videos"
+        );
+      }
+
+      setVideos(videosData);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load playlist"
       );
+    } finally {
+      setLoading(false);
     }
-
-    setPlaylist(playlistData);
-
-    // Fetch videos in playlist
-    const videosRes = await fetch(`/api/playlists/${id}/videos`);
-    const videosData = await videosRes.json(); // ✅ parse FIRST
-
-    if (!videosRes.ok) {
-      throw new Error(
-        videosData?.error?.message ||
-        videosData?.message ||
-        "Failed to fetch videos"
-      );
-    }
-
-    setVideos(videosData);
-  } catch (error) {
-    toast.error(
-      error instanceof Error ? error.message : "Failed to load playlist"
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleRemoveVideo = async (videoId: string) => {
     if (!confirm("Remove this video from the playlist?")) return;
 
     try {
-  const response = await fetch(
-    `/api/playlists/${id}/videos?videoId=${videoId}`,
-    { method: "DELETE" }
-  );
+      const response = await fetch(
+        `/api/playlists/${id}/videos?videoId=${videoId}`,
+        { method: "DELETE" }
+      );
 
-  const data = await response.json(); // ✅ parse FIRST
+      const data = await response.json(); // ✅ parse FIRST
 
-  if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-      data?.message ||
-      "Failed to remove video"
-    );
-  }
+      if (!response.ok) {
+        throw new Error(
+          data?.error?.message ||
+          data?.message ||
+          "Failed to remove video"
+        );
+      }
 
-  setVideos(videos.filter((v) => v.id !== videoId));
-  toast.success("Video removed from playlist");
-} catch (error) {
-  toast.error(
-    error instanceof Error ? error.message : "Failed to remove video"
-  );
-}
+      setVideos(videos.filter((v) => v.id !== videoId));
+      toast.success("Video removed from playlist");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove video"
+      );
+    }
 
   };
 
   if (!mounted || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading playlist…</p>
       </div>
     );
   }
