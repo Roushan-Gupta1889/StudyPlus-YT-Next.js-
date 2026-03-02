@@ -77,7 +77,7 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3">
+        <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-3">
           <ul className="space-y-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
@@ -102,7 +102,7 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-sidebar-border space-y-2">
+        <div className="flex-shrink-0 p-3 border-t border-sidebar-border space-y-2">
           {session?.user?.isIITMUser && (
             <>
               <div className="px-2 mb-1">
