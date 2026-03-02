@@ -143,7 +143,7 @@ export default function InstallPage() {
 
                 {/* Back Link */}
                 <Button variant="ghost" asChild>
-                    <Link href="/">← Back to home</Link>
+                    <Link href="/app/dashboard">← Back to home</Link>
                 </Button>
             </div>
         </div>
