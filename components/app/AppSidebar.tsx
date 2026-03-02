@@ -139,12 +139,6 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
             <Settings className="w-5 h-5 flex-shrink-0" />
             <span>Settings</span>
           </Link>
-
-          {/* Theme Toggle */}
-          <div className="flex items-center gap-3 px-3 py-2">
-            <span className="text-sm text-sidebar-foreground">Theme</span>
-            <ThemeToggle />
-          </div>
         </div>
       </aside>
     );
