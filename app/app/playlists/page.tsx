@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Trash2, Play, Search, GraduationCap, Lock } from "lucide-react";
+import { Plus, Loader2, Trash2, Play, Search, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -218,16 +218,15 @@ export default function PlaylistsPage() {
   };
 
   const handleClearAll = async () => {
-    if (generalPlaylists.length === 0) {
+    if (playlists.length === 0) {
       toast.error("No playlists to clear");
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete ALL ${generalPlaylists.length} playlists? IITM course playlists will be kept. This cannot be undone.`)) return;
+    if (!confirm(`Are you sure you want to delete ALL ${playlists.length} playlists? This cannot be undone.`)) return;
 
     try {
-      // Delete only general playlists (not IITM)
-      const deletePromises = generalPlaylists.map(playlist =>
+      const deletePromises = playlists.map(playlist =>
         fetch(`/api/playlists/delete`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -237,8 +236,8 @@ export default function PlaylistsPage() {
 
       await Promise.all(deletePromises);
 
-      setPlaylists(playlists.filter((p) => p.isIITM));
-      toast.success("All general playlists cleared successfully");
+      setPlaylists([]);
+      toast.success("All playlists cleared successfully");
     } catch (error) {
       toast.error("Failed to clear all playlists");
     }
@@ -268,31 +267,20 @@ export default function PlaylistsPage() {
             </div>
           )}
 
-          {/* Delete Button (only for general playlists) */}
-          {!isIITMCard && (
-            <div className="absolute top-2 right-2 z-10">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDeletePlaylist(playlist.id);
-                }}
-                className="text-destructive hover:bg-destructive/10 bg-white/80 hover:bg-white"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* Locked icon for IITM playlists */}
-          {isIITMCard && (
-            <div className="absolute top-2 right-2 z-10">
-              <div className="bg-white/80 rounded-md p-1.5" title="IITM course playlists cannot be deleted">
-                <Lock className="w-4 h-4 text-indigo-600" />
-              </div>
-            </div>
-          )}
+          {/* Delete Button */}
+          <div className="absolute top-2 right-2 z-10">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeletePlaylist(playlist.id);
+              }}
+              className="text-destructive hover:bg-destructive/10 bg-white/80 hover:bg-white"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
 
           {/* Hover Overlay */}
           <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
@@ -326,7 +314,7 @@ export default function PlaylistsPage() {
         </div>
 
         <div className="flex gap-2">
-          {generalPlaylists.length > 0 && (
+          {playlists.length > 0 && (
             <Button
               variant="outline"
               onClick={handleClearAll}
