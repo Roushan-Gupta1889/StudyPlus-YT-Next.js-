@@ -13,6 +13,7 @@ const requiredEnvVars = [
 const optionalEnvVars = [
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',
+    'ANTHROPIC_API_KEY',
 ] as const;
 
 export function validateEnv() {

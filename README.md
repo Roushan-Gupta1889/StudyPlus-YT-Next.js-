@@ -120,6 +120,15 @@
 | **Install Prompt** | Custom in-app install banner |
 | **Mobile Optimized** | Responsive sidebar, mobile header, rotate banner for landscape suggestion |
 
+### 🤖 AI Study Assistant (Claude)
+| Feature | Description |
+|---------|-------------|
+| **Context-Aware Chat** | AI assistant that knows your current video, description, and notes |
+| **Streaming Responses** | Real-time word-by-word AI responses |
+| **Quick Actions** | One-click "Summarize", "Quiz Me", "Explain Simply" buttons |
+| **Markdown Rendering** | Formatted AI responses with headers, lists, code blocks |
+| **Chat History** | Maintains conversation context within a session |
+
 ### 🌗 Additional Features
 - **Dark/Light/System Theme** — Powered by `next-themes`
 - **Rate Limiting** — LRU-cache based API rate limiting
@@ -169,6 +178,11 @@
 | [React Hook Form](https://react-hook-form.com/) | 7.71 | Form handling with Zod validation |
 | [Zod](https://zod.dev/) | 4.3 | Schema validation |
 | [Axios](https://axios-http.com/) | 1.13 | HTTP client |
+
+### AI
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| [Anthropic Claude SDK](https://docs.anthropic.com/) | Latest | AI study assistant (streaming chat) |
 
 ### Charts & Media
 | Technology | Version | Purpose |

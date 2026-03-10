@@ -16,6 +16,7 @@ const FloatingInput = forwardRef<HTMLInputElement, FloatingInputProps>(
                     id={id}
                     className={`floating-input ${className}`}
                     placeholder=" "
+                    suppressHydrationWarning
                     {...props}
                 />
                 <label htmlFor={id} className="floating-label">

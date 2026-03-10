@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import YouTubePlayer, { YouTubePlayerRef, YT_PLAYER_STATE, PlayerState } from "@/components/YouTubePlayer";
+import { AiChat } from "@/components/app/AiChat";
 
 interface Video {
   id: string;
@@ -665,9 +666,15 @@ export default function WatchPage({
               </TabsContent>
 
               <TabsContent value="ai" className="space-y-4">
-                <Card className="p-6 text-center text-muted-foreground py-12">
-                  <p>AI Assistant coming soon</p>
-                </Card>
+                <AiChat
+                  videoContext={{
+                    title: video.title,
+                    description: video.description,
+                    channel: video.channel,
+                    youtubeId: video.youtubeId,
+                  }}
+                  notes={notes.map((n) => ({ content: n.content, timestamp: n.timestamp }))}
+                />
               </TabsContent>
             </Tabs>
           </div>
