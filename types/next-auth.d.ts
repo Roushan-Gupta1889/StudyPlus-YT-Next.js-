@@ -8,11 +8,13 @@ declare module "next-auth" {
             name?: string | null;
             image?: string | null;
             isIITMUser: boolean;
+            role: string;
         };
     }
 
     interface User {
         isIITMUser?: boolean;
+        role?: string;
     }
 }
 
@@ -20,5 +22,6 @@ declare module "next-auth/jwt" {
     interface JWT {
         id: string;
         isIITMUser: boolean;
+        role: string;
     }
 }

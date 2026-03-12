@@ -17,6 +17,13 @@ export async function middleware(request: NextRequest) {
             url.searchParams.set("callbackUrl", pathname);
             return NextResponse.redirect(url);
         }
+
+        // Protect /app/admin routes - require ADMIN role
+        if (pathname.startsWith("/app/admin")) {
+            if (token.role !== "ADMIN") {
+                return NextResponse.redirect(new URL("/app/dashboard", request.url));
+            }
+        }
     }
 
     // Redirect authenticated users away from login/signup

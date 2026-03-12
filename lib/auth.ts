@@ -52,7 +52,8 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     name: user.name,
                     image: user.image,
-                    isIITMUser: user.isIITMUser
+                    isIITMUser: user.isIITMUser,
+                    role: (user as any).role || "USER"
                 };
             }
         }),
@@ -86,6 +87,7 @@ export const authOptions: NextAuthOptions = {
                             }
                         });
                         user.id = existingUser.id;
+                        (user as any).role = (existingUser as any).role || "USER";
                     } else {
                         // Create new user for Google OAuth
                         const newUser = await prisma.user.create({
@@ -98,6 +100,7 @@ export const authOptions: NextAuthOptions = {
                             }
                         });
                         user.id = newUser.id;
+                        (user as any).role = "USER";
                     }
                 } catch (error) {
                     console.error("Error in signIn callback:", error);
@@ -112,6 +115,7 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = user.id;
                 token.isIITMUser = (user as any).isIITMUser || isIITMEmail(user.email || "");
+                token.role = (user as any).role || "USER";
             }
 
             // Handle session updates
@@ -127,6 +131,7 @@ export const authOptions: NextAuthOptions = {
             if (session.user) {
                 session.user.id = token.id as string;
                 session.user.isIITMUser = token.isIITMUser as boolean;
+                session.user.role = (token.role as string) || "USER";
             }
             return session;
         }

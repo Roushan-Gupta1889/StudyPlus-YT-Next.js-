@@ -18,6 +18,8 @@ import {
   Library,
   Folder,
   GraduationCap,
+  Shield,
+  Users,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,11 @@ const navItems = [
 
 const specialItems = [
   { icon: GraduationCap, label: "IITM Curriculum", href: "/app/iitm", highlight: true },
+];
+
+const adminItems = [
+  { icon: Shield, label: "Admin Overview", href: "/app/admin" },
+  { icon: Users, label: "Manage Users", href: "/app/admin/users" },
 ];
 
 interface AppSidebarProps {
@@ -119,6 +126,33 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
                       isActive
                         ? "bg-primary text-primary-foreground border-primary font-medium"
                         : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-primary/30"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </>
+          )}
+
+          {/* Admin Panel - Only for admin users */}
+          {session?.user?.role === "ADMIN" && (
+            <>
+              <div className="px-2 mb-1 mt-2">
+                <div className="text-xs font-semibold text-muted-foreground mb-1">Admin Panel</div>
+              </div>
+              {adminItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border",
+                      isActive
+                        ? "bg-orange-500 text-white border-orange-500 font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-orange-500/30"
                     )}
                   >
                     <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -221,6 +255,37 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
                     isActive
                       ? "bg-primary text-primary-foreground border-primary font-medium"
                       : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-primary/30",
+                    collapsed && "justify-center border-0"
+                  )}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+              );
+            })}
+          </>
+        )}
+
+        {/* Admin Panel - Only for admin users */}
+        {session?.user?.role === "ADMIN" && (
+          <>
+            {!collapsed && (
+              <div className="px-2 mb-1 mt-2">
+                <div className="text-xs font-semibold text-muted-foreground">Admin Panel</div>
+              </div>
+            )}
+            {adminItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border",
+                    isActive
+                      ? "bg-orange-500 text-white border-orange-500 font-medium"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50 border-orange-500/30",
                     collapsed && "justify-center border-0"
                   )}
                 >
