@@ -1,10 +1,3 @@
-/**
- * Claude AI Client Library
- * 
- * Provides streaming chat completions via Anthropic's Claude API.
- * Used by the AI Study Assistant on the watch page.
- */
-
 import Anthropic from "@anthropic-ai/sdk";
 
 // Lazy client initialization
@@ -50,7 +43,8 @@ export interface NoteContext {
 
 function buildSystemPrompt(
     video: VideoContext,
-    notes: NoteContext[]
+    notes: NoteContext[],
+    mode: string = "auto"
 ): string {
     let prompt = `You are an AI Study Assistant embedded in StudyPlus YT, a focused learning platform. You are helping a student who is currently watching a YouTube video.
 
@@ -81,28 +75,34 @@ function buildSystemPrompt(
 - Keep responses concise but thorough
 - Use markdown formatting (headers, bold, lists, code blocks) for readability
 - When explaining concepts, relate them back to the video content when possible
-- If asked to quiz, create 3-5 multiple choice or short answer questions
-- If asked to summarize, provide a structured summary with key takeaways
 - If you don't know something specific about the video content, be honest about it and provide general knowledge on the topic instead`;
 
-    return prompt;
+    let modePrompt = "";
+    if (mode === "fast") {
+        modePrompt = `## Response Mode: FAST\n- Give short and quick answers\n- Avoid long explanations\n- Use 3-5 bullet points max\n- Focus only on key idea\n- Do NOT go deep unless asked`;
+    } else if (mode === "balanced") {
+        modePrompt = `## Response Mode: BALANCED\n- Give clear and moderately detailed answers\n- Use bullet points and simple structure\n- Explain concepts with 1 example if helpful\n- Keep response medium length`;
+    } else if (mode === "smart") {
+        modePrompt = `## Response Mode: SMART\n- Give deep, step-by-step explanations\n- Use examples, analogies, and breakdowns\n- Connect concepts to real-world understanding\n- Provide structured answers (headings + sections)\n- If useful, expand beyond video for better clarity`;
+    } else {
+        modePrompt = `## Response Mode: AUTO\n- If question is short/simple → answer briefly\n- If question is complex → explain step-by-step\n- If user asks "quiz" → generate questions\n- If user asks "summarize" → give structured summary\n- Adapt response depth based on user intent`;
+    }
+
+    return prompt + "\n\n" + modePrompt;
 }
 
 // ==========================================
 // Streaming Chat
 // ==========================================
 
-/**
- * Create a streaming chat completion with Claude.
- * Returns a ReadableStream that emits text chunks.
- */
 export async function streamChat(
     messages: ChatMessage[],
     video: VideoContext,
-    notes: NoteContext[]
+    notes: NoteContext[],
+    mode: string = "auto"
 ): Promise<ReadableStream<Uint8Array>> {
     const anthropic = getClient();
-    const systemPrompt = buildSystemPrompt(video, notes);
+    const systemPrompt = buildSystemPrompt(video, notes, mode);
 
     const encoder = new TextEncoder();
 
@@ -110,7 +110,7 @@ export async function streamChat(
         async start(controller) {
             try {
                 const stream = anthropic.messages.stream({
-                    model: "claude-sonnet-4-20250514",
+                    model: "claude-3-5-sonnet-20240620",
                     max_tokens: 2048,
                     system: systemPrompt,
                     messages: messages.map((m) => ({
