@@ -138,8 +138,8 @@ async function attemptStream(
                     throw new Error(`Authentication failed for ${provider} API. Please check your keys.`);
                 }
 
-                if (status === 429) {
-                    console.warn(`[${provider}] Rate limited (429). Falling back...`);
+                if (status === 429 || status === 404) {
+                    console.warn(`[${provider}] Non-retriable error (${status}). Falling back...`);
                     break; // Move to next provider
                 }
 
@@ -182,8 +182,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Video context is required" }, { status: 400 });
         }
 
+        // Clean internal AI labels from history to prevent the LLM from hallucinating/imitating them!
+        const cleanHistory = (history || []).map(msg => {
+            if (msg.role === "assistant" && msg.content) {
+                return {
+                    ...msg,
+                    content: msg.content.replace(/^AI • [^\n]+[\r\n]+/, "")
+                };
+            }
+            return msg;
+        });
+
         const messages: ChatMessage[] = [
-            ...(history || []),
+            ...cleanHistory,
             { role: "user", content: message.trim() },
         ];
 

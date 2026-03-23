@@ -1,14 +1,14 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
-let genAI: GoogleGenerativeAI | null = null;
+let genAI: GoogleGenAI | null = null;
 
-function getGenAIClient(): GoogleGenerativeAI {
+function getGenAIClient(): GoogleGenAI {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
         throw { status: 500, message: "GEMINI_API_KEY is not set.", provider: "gemini" };
     }
     if (!genAI) {
-        genAI = new GoogleGenerativeAI(apiKey);
+        genAI = new GoogleGenAI({ apiKey });
     }
     return genAI;
 }
@@ -98,32 +98,34 @@ export async function streamGeminiChat(
     const hasImage = !!base64Image;
     const systemPrompt = buildGeminiSystemPrompt(video, notes, mode, hasImage);
 
-    const history = messages.slice(0, -1).map(m => ({
+    // `@google/genai` expects role to be "user" or "model"
+    const contents: any[] = messages.map(m => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }]
     }));
-    
-    const lastMessage = messages[messages.length - 1];
 
-    const model = client.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: systemPrompt
-    });
-
-    const chat = model.startChat({ history });
-
-    const parts: any[] = [lastMessage.content];
     if (base64Image && mimeType) {
-        parts.push({
+        // Append image to the very last message payload natively for `@google/genai`
+        const lastIndex = contents.length - 1;
+        contents[lastIndex].parts.push({
             inlineData: { data: base64Image, mimeType: mimeType }
         });
     }
 
     const encoder = new TextEncoder();
     
-    let result: any;
+    let resultStream: any;
     try {
-        result = await withTimeout(chat.sendMessageStream(parts), 10000);
+        resultStream = await withTimeout(
+            client.models.generateContentStream({
+                model: 'gemini-3-flash-preview',
+                contents: contents,
+                config: {
+                    systemInstruction: systemPrompt
+                }
+            }),
+            10000
+        );
     } catch (error: any) {
         throw { status: error.status || 500, message: error.message || "Gemini connection failed", provider: "gemini" };
     }
@@ -134,8 +136,10 @@ export async function streamGeminiChat(
                 if (prefixMessage) {
                     controller.enqueue(encoder.encode(prefixMessage));
                 }
-                for await (const chunk of result.stream) {
-                    controller.enqueue(encoder.encode(chunk.text()));
+                for await (const chunk of resultStream) {
+                    if (chunk.text) {
+                        controller.enqueue(encoder.encode(chunk.text));
+                    }
                 }
             } catch (error: any) {
                 console.error("Gemini chunk streaming error:", error);

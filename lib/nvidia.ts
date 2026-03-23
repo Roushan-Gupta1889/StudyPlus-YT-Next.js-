@@ -76,7 +76,11 @@ export async function streamNvidiaChat(
     const systemPrompt = buildNvidiaSystemPrompt(video, notes);
     const encoder = new TextEncoder();
 
-    const modelsToTry = ["deepseek-v3.2", "deepseek-v3.1", "glm-4.7"];
+    const modelsToTry = [
+        "meta/llama-4-maverick-17b-128e-instruct",
+        "deepseek-ai/deepseek-r1",
+        "meta/llama-3.1-70b-instruct"
+    ];
     let stream: any = null;
     let lastError: any = null;
 
