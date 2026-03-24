@@ -156,9 +156,14 @@ export async function POST(req: NextRequest) {
     // Extract playlist ID
     const playlistId = extractPlaylistId(playlistUrl);
     if (!playlistId) {
+      const isVideoPattern = playlistUrl.includes("youtu.be/") || playlistUrl.includes("/watch?v=");
+      const errorMessage = isVideoPattern 
+        ? "This is a video URL. Please provide a YouTube playlist URL."
+        : "Invalid YouTube playlist URL";
+        
       const { response, statusCode } = createErrorResponse(
         ErrorCode.INVALID_INPUT,
-        "Invalid YouTube playlist URL",
+        errorMessage,
         400
       );
       return NextResponse.json(response, { status: statusCode });

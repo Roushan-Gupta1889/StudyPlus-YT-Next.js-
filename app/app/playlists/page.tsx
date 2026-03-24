@@ -158,6 +158,15 @@ export default function PlaylistsPage() {
       return;
     }
 
+    // Check if user submitted a video URL instead of a playlist URL
+    const isVideoUrl = playlistUrl.includes("youtu.be/") || playlistUrl.includes("/watch?v=");
+    const isPlaylistUrl = playlistUrl.includes("list=");
+    
+    if (isVideoUrl && !isPlaylistUrl) {
+      toast.error("This looks like a video URL. Please paste a full YouTube playlist URL.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
