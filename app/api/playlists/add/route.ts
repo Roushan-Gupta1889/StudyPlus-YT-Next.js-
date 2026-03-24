@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
       ? sanitizeName(playlistName)
       : `Playlist - ${new Date().toLocaleDateString()}`;
 
-    // ✅ FIX 4: Wrap everything in a transaction
+    // ✅ FIX 4: Wrap everything in a transaction (with increased timeout for large playlists)
     const result = await prisma.$transaction(async (tx) => {
       // Create playlist in database
       const playlist = await tx.playlist.create({
@@ -253,14 +253,16 @@ export async function POST(req: NextRequest) {
         videoRecordIds.push(video.id);
       }
 
-      // Create playlist video relationships
-      for (let position = 0; position < videoRecordIds.length; position++) {
-        await tx.playlistVideo.create({
-          data: {
-            playlistId: playlist.id,
-            videoId: videoRecordIds[position],
-            position: position,
-          },
+      // Create playlist video relationships efficiently
+      if (videoRecordIds.length > 0) {
+        const playlistVideoData = videoRecordIds.map((id, position) => ({
+          playlistId: playlist.id,
+          videoId: id,
+          position: position,
+        }));
+
+        await tx.playlistVideo.createMany({
+          data: playlistVideoData,
         });
       }
 
@@ -268,6 +270,9 @@ export async function POST(req: NextRequest) {
         playlist,
         videosAdded: videoRecordIds.length,
       };
+    }, {
+      maxWait: 5000,
+      timeout: 30000, // 30 seconds to allow creating up to 50 videos
     });
 
     // ✅ FIX 3: Return truncation warning in response
