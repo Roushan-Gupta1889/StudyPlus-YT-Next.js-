@@ -11,6 +11,7 @@ const footerLinks = {
   product: [
     { label: "Features", href: "/features" },
     { label: "Contributors", href: "/contributors" },
+    { label: "FAQ", href: "/#faq" },
   ],
   company: [
     { label: "About", href: "/about" },

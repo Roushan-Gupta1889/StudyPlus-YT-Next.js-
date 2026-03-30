@@ -8,6 +8,7 @@ import { WhyStudyPlus } from "@/components/landing/WhyStudyPlus";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { Contact } from "@/components/landing/Contact";
 import { CTA } from "@/components/landing/CTA";
+import { FAQ } from "@/components/landing/FAQ";
 
 
 export default function HomePage() {
@@ -20,6 +21,7 @@ export default function HomePage() {
         <Features />
         <AppPreview />
         <WhyStudyPlus />
+        <FAQ />
         <Testimonials />
         <Contact />
         <CTA />
