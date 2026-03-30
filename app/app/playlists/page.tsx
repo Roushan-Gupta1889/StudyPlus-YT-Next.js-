@@ -100,25 +100,29 @@ export default function PlaylistsPage() {
   const handleImportFromSearch = async (playlist: any) => {
     try {
       setImportingPlaylistId(playlist.id);
-      const response = await fetch("/api/playlists", {
+
+      // ✅ FIX (Bug 3): Use /api/playlists/add (has rate limiting + transactions)
+      // instead of /api/playlists POST (had neither).
+      const response = await fetch("/api/playlists/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: playlist.title,
-          description: playlist.description,
-          youtubeId: `https://www.youtube.com/playlist?list=${playlist.id}`,
+          playlistUrl: `https://www.youtube.com/playlist?list=${playlist.id}`,
+          playlistName: playlist.title,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to import playlist");
+        throw new Error(
+          data?.error?.message || data?.error || "Failed to import playlist"
+        );
       }
 
       await fetchPlaylists();
       setOpen(false);
-      toast.success("Playlist imported successfully!");
+      toast.success(`Playlist imported with ${data.videosAdded} videos!`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to import playlist");
     } finally {

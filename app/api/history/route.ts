@@ -33,7 +33,18 @@ export async function GET(request: NextRequest) {
                 userId: session.user.id,
             },
             include: {
-                video: true,
+                video: {
+                    include: {
+                        // Include playlist memberships so callers can build
+                        // the correct watch URL with ?playlistId=
+                        playlistVideos: {
+                            select: {
+                                playlistId: true,
+                            },
+                            take: 1, // we only need the first playlist
+                        },
+                    },
+                },
             },
             orderBy: {
                 watchedAt: "desc",

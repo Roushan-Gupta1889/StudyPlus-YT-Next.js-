@@ -7,27 +7,17 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    // ✅ FIX: Use session.user.id directly — no extra DB lookup needed
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
     // Get all playlists for this user
     const playlists = await prisma.playlist.findMany({
-      where: { userId: user.id },
+      where: { userId: session.user.id },
       include: {
         _count: {
           select: { videos: true },

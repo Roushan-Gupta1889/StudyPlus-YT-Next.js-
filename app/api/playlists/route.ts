@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPlaylistVideos, extractPlaylistId, getPlaylistDetails } from "@/lib/youtube";
 
-// GET /api/playlists - Fetch user's playlists
+// GET /api/playlists — Fetch user's playlists with stats
+// NOTE: POST was removed. Use POST /api/playlists/add to import playlists.
+// The old POST handler had no rate limiting and no DB transaction.
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -44,137 +45,5 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error("[PLAYLISTS_GET]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
-    }
-}
-
-// POST /api/playlists - Create a playlist
-export async function POST(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body = await request.json();
-        let { name, description, youtubeId, isIITM } = body;
-
-        // If simple quick-add (only URL provided)
-        if (!name && youtubeId) {
-            const extractedId = extractPlaylistId(youtubeId);
-            if (!extractedId) {
-                return NextResponse.json({ error: "Invalid YouTube Playlist URL" }, { status: 400 });
-            }
-
-            try {
-                const details = await getPlaylistDetails(extractedId);
-                youtubeId = details.id; // Store ID, not full URL if possible, though schema might just use it for reference
-                name = details.title;
-                description = details.description;
-            } catch (error) {
-                console.error("Failed to fetch playlist details:", error);
-                return NextResponse.json({ error: "Failed to fetch playlist details" }, { status: 400 });
-            }
-        }
-
-        if (!name) {
-            return NextResponse.json({ error: "Name is required" }, { status: 400 });
-        }
-
-        let newPlaylist;
-        let importedVideoCount = 0;
-        let wasTruncated = false;
-
-        if (youtubeId) {
-            // Extract playlist ID from URL if needed
-            const playlistId = extractPlaylistId(youtubeId);
-
-            if (!playlistId) {
-                return NextResponse.json({ error: "Invalid playlist URL or ID" }, { status: 400 });
-            }
-
-            // Import all videos from YouTube
-            console.log(`[PLAYLISTS] Starting import for playlist ${playlistId}`);
-            const { videos, truncated, totalFetched } = await getPlaylistVideos(playlistId);
-            console.log(`[PLAYLISTS] Fetched ${totalFetched} videos from YouTube (truncated: ${truncated})`);
-
-            importedVideoCount = videos.length;
-            wasTruncated = truncated;
-
-            if (videos.length === 0) {
-                return NextResponse.json({ error: "Could not fetch playlist videos" }, { status: 400 });
-            }
-
-            newPlaylist = await prisma.playlist.create({
-                data: {
-                    userId: session.user.id,
-                    name,
-                    description,
-                    isIITM: !!isIITM,
-                },
-            });
-
-            // Add all videos to database and playlist
-            for (let i = 0; i < videos.length; i++) {
-                const videoData: any = videos[i];
-
-                // Upsert video (create if not exists)
-                const video = await prisma.video.upsert({
-                    where: {
-                        userId_youtubeId: {
-                            userId: session.user.id,
-                            youtubeId: videoData.id,
-                        },
-                    },
-                    create: {
-                        userId: session.user.id,
-                        youtubeId: videoData.id,
-                        title: videoData.title,
-                        description: videoData.description,
-                        thumbnail: videoData.thumbnail,
-                        duration: videoData.duration,
-                        channel: videoData.channel,
-                        inLibrary: true, // Auto-add to library
-                    },
-                    update: {}, // Don't update if exists
-                });
-
-                // Add to playlist
-                await prisma.playlistVideo.create({
-                    data: {
-                        playlistId: newPlaylist.id,
-                        videoId: video.id,
-                        position: i,
-                    },
-                });
-            }
-
-            console.log(`[PLAYLISTS] Successfully imported ${videos.length} videos`);
-        } else {
-            // Create empty playlist
-            newPlaylist = await prisma.playlist.create({
-                data: {
-                    userId: session.user.id,
-                    name,
-                    description,
-                    isIITM: !!isIITM,
-                },
-            });
-        }
-
-        // Return playlist with actual stats
-        return NextResponse.json({
-            ...newPlaylist,
-            totalVideos: importedVideoCount,
-            completedVideos: 0,
-            totalDuration: 0,
-            ...(wasTruncated && { warning: "Playlist was truncated due to size limit" }),
-        }, { status: 201 });
-    } catch (error) {
-        console.error("[PLAYLISTS_POST] Error details:", error);
-        return NextResponse.json({
-            error: "Internal error",
-            details: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
     }
 }

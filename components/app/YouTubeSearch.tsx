@@ -116,13 +116,13 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
   const handleImportPlaylist = async (playlist: any) => {
     try {
       setImportingPlaylistId(playlist.id);
-      const res = await fetch("/api/playlists", {
+      const res = await fetch("/api/playlists/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: playlist.title,
+          playlistName: playlist.title,
           description: playlist.description,
-          youtubeId: `https://www.youtube.com/playlist?list=${playlist.id}`, // Send full URL
+          playlistUrl: `https://www.youtube.com/playlist?list=${playlist.id}`,
         }),
       });
 

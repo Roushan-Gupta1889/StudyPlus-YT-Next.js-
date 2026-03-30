@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,31 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
 model User {
-  id            String    @id @default(cuid())
+  id            String             @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String             @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  role          Role      @default(USER)
-  isIITMUser    Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  videos        Video[]
+  isIITMUser    Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  role          Role               @default(USER)
+  contributions Contributor[]
+  iitmProgress  IITMUserProgress[]
   notes         Note[]
   playlists     Playlist[]
-  watchHistory  WatchHistory[]
   analytics     UserAnalytics?
   preferences   UserPreferences?
-  iitmProgress    IITMUserProgress[]
-  contributions   Contributor[]
+  videos        Video[]
+  watchHistory  WatchHistory[]
 
   @@map("users")
 }
@@ -44,12 +35,11 @@ model Contributor {
   userId      String?
   name        String
   amount      Int
-  message     String?  @db.Text
+  message     String?
   isAnonymous Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([amount])
   @@index([createdAt])
@@ -57,30 +47,26 @@ model Contributor {
 }
 
 model Video {
-  id          String   @id @default(cuid())
-  userId      String
-  youtubeId   String
-  title       String
-  description String?
-  thumbnail   String?
-  duration    Int? // in seconds
-  channel     String?
-  progress    Int      @default(0) // percentage 0-100
-  completed   Boolean  @default(false)
-  inLibrary   Boolean  @default(true)
-  
-  // Player state persistence (Phase 1)
-  currentTime   Int   @default(0)      // Last playback position in seconds
-  playbackRate  Float @default(1.0)    // Playback speed (0.25, 0.5, 1.0, 1.5, 2.0)
-  muted         Boolean @default(false) // Mute state
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notes           Note[]
-  watchHistory    WatchHistory[]
-  playlistVideos  PlaylistVideo[]
+  id             String          @id @default(cuid())
+  userId         String
+  youtubeId      String
+  title          String
+  description    String?
+  thumbnail      String?
+  duration       Int?
+  channel        String?
+  progress       Int             @default(0)
+  completed      Boolean         @default(false)
+  inLibrary      Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  currentTime    Int             @default(0)
+  muted          Boolean         @default(false)
+  playbackRate   Float           @default(1.0)
+  notes          Note[]
+  playlistVideos PlaylistVideo[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  watchHistory   WatchHistory[]
 
   @@unique([userId, youtubeId])
   @@index([userId])
@@ -91,16 +77,15 @@ model Video {
 }
 
 model Note {
-  id          String   @id @default(cuid())
-  userId      String
-  videoId     String
-  content     String   @db.Text
-  timestamp   Int // in seconds
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  content   String
+  timestamp Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([videoId])
@@ -109,16 +94,15 @@ model Note {
 }
 
 model Playlist {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   userId      String
   name        String
   description String?
-  isIITM      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  videos PlaylistVideo[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  isIITM      Boolean         @default(false)
+  videos      PlaylistVideo[]
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("playlists")
@@ -130,9 +114,8 @@ model PlaylistVideo {
   videoId    String
   position   Int      @default(0)
   addedAt    DateTime @default(now())
-
-  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@unique([playlistId, videoId])
   @@index([playlistId])
@@ -140,14 +123,13 @@ model PlaylistVideo {
 }
 
 model WatchHistory {
-  id         String   @id @default(cuid())
-  userId     String
-  videoId    String
-  watchedAt  DateTime @updatedAt
-  watchTime  Int
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  watchedAt DateTime @default(now()) @updatedAt
+  watchTime Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@unique([userId, videoId])
   @@index([userId])
@@ -157,29 +139,28 @@ model WatchHistory {
 }
 
 model UserAnalytics {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  totalWatchTime  Int      @default(0) // in seconds
-  videosCompleted Int      @default(0)
-  currentStreak   Int      @default(0) // in days
-  longestStreak   Int      @default(0)
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  totalWatchTime  Int       @default(0)
+  videosCompleted Int       @default(0)
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
   lastWatchDate   DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_analytics")
 }
 
 model VideoSearch {
-  id          String   @id @default(cuid())
-  query       String
-  type        String   @default("video") // video, channel, playlist
-  results     Json     // Store search results as JSON
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  expiresAt   DateTime // Cache expiration (24 hours)
+  id        String   @id @default(cuid())
+  query     String
+  type      String   @default("video")
+  results   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
 
   @@unique([query, type])
   @@index([query])
@@ -195,96 +176,88 @@ model UserPreferences {
   newFeatures    Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
 }
 
-// ============================================
-// IITM BS Curriculum Models
-// ============================================
-
-// Top-level curriculum sections (Foundation, Diploma, BSc, BS, etc.)
 model IITMCurriculumSection {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String               @id @default(cuid())
+  slug        String               @unique
   title       String
-  description String?  @db.Text
+  description String?
   order       Int
   icon        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  categories IITMCourseCategory[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  categories  IITMCourseCategory[]
 
   @@map("iitm_curriculum_sections")
 }
 
-// Categories within sections (Core, Electives, Projects, etc.)
 model IITMCourseCategory {
-  id          String   @id @default(cuid())
+  id          String                @id @default(cuid())
   sectionId   String
   slug        String
   title       String
-  description String?  @db.Text
+  description String?
   order       Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  section IITMCurriculumSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  courses IITMCourse[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  section     IITMCurriculumSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  courses     IITMCourse[]
 
   @@unique([sectionId, slug])
   @@index([sectionId])
   @@map("iitm_course_categories")
 }
 
-// Individual IITM courses/playlists
 model IITMCourse {
-  id                String   @id @default(cuid())
+  id                String             @id @default(cuid())
   categoryId        String
-  slug              String   @unique
+  slug              String             @unique
   title             String
-  description       String?  @db.Text
-  courseCode        String?  // Official IITM course code (e.g., BSMA1001)
+  description       String?
   youtubePlaylistId String
   thumbnail         String?
-  lessonsCount      Int      @default(0)
-  duration          Int?     // Total duration in seconds (optional)
+  lessonsCount      Int                @default(0)
+  duration          Int?
   order             Int
-  level             String?  // "beginner", "intermediate", "advanced"
-  credits           Int?     // Course credits (e.g., 4)
-  isProject         Boolean  @default(false) // True for project courses
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  category     IITMCourseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  userProgress IITMUserProgress[]
+  level             String?
+  credits           Int?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  courseCode        String?
+  isProject         Boolean            @default(false)
+  category          IITMCourseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userProgress      IITMUserProgress[]
 
   @@index([categoryId])
   @@map("iitm_courses")
 }
 
-// Track individual user progress on IITM courses
 model IITMUserProgress {
-  id             String    @id @default(cuid())
+  id             String     @id @default(cuid())
   userId         String
   courseId       String
-  videosWatched  Int       @default(0)
-  totalVideos    Int       @default(0)
-  completionRate Int       @default(0) // 0-100
+  videosWatched  Int        @default(0)
+  totalVideos    Int        @default(0)
+  completionRate Int        @default(0)
   lastWatchedAt  DateTime?
-  isStarted      Boolean   @default(false)
-  isCompleted    Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course IITMCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  isStarted      Boolean    @default(false)
+  isCompleted    Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  course         IITMCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
   @@index([userId])
   @@index([courseId])
   @@map("iitm_user_progress")
+}
+
+enum Role {
+  USER
+  ADMIN
 }

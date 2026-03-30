@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Check, X, Plus, Trash2, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import YouTubePlayer, { YouTubePlayerRef, YT_PLAYER_STATE, PlayerState } from "@/components/YouTubePlayer";
 import { AiChat } from "@/components/app/AiChat";
+import { Linkify } from "@/components/ui/linkify";
 
 interface Video {
   id: string;
@@ -48,6 +50,8 @@ export default function WatchPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const urlPlaylistId = searchParams.get("playlistId");
   const [video, setVideo] = useState<Video | null>(null);
   const [playlistVideos, setPlaylistVideos] = useState<PlaylistVideo[]>([]);
   const [playlistId, setPlaylistId] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export default function WatchPage({
   const [mounted, setMounted] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
-  const [showPlaylist, setShowPlaylist] = useState(true);
+  const [showPlaylist, setShowPlaylist] = useState(true)
 
   // Player ref (Phase 1: YouTube IFrame API)
   const playerRef = useRef<YouTubePlayerRef>(null);
@@ -79,11 +83,18 @@ export default function WatchPage({
   // ✅ Duration correction: Only update once per video
   const durationCorrectedRef = useRef(false);
 
+  // Ref to always hold latest video id (for beforeunload)
+  const videoRef = useRef<Video | null>(null);
+
+  // ✅ FIX: Load playlist from URL using useSearchParams (reliable on initial render)
   useEffect(() => {
     setMounted(true);
     fetchVideo();
-    checkPlaylistContext();
-  }, [id]);
+    if (urlPlaylistId) {
+      setPlaylistId(urlPlaylistId);
+      fetchPlaylistVideos(urlPlaylistId);
+    }
+  }, [id, urlPlaylistId]);
 
   // Reset session when video changes
   useEffect(() => {
@@ -107,15 +118,6 @@ export default function WatchPage({
     };
   }, [video]); // Only run on unmount or video change
 
-  const checkPlaylistContext = async () => {
-    // Try to get playlist info from session/url params if available
-    const urlParams = new URLSearchParams(window.location.search);
-    const pId = urlParams.get("playlistId");
-    if (pId) {
-      setPlaylistId(pId);
-      await fetchPlaylistVideos(pId);
-    }
-  };
 
   const fetchVideo = async () => {
     try {
@@ -125,6 +127,7 @@ export default function WatchPage({
       }
       const data = await response.json();
       setVideo(data);
+      videoRef.current = data; // keep ref in sync for beforeunload
       setCompleted(data.completed || false);
     } catch (error) {
       console.error("Fetch error:", error);
@@ -361,6 +364,17 @@ export default function WatchPage({
 
       // Save final state
       savePlayerState(currentState);
+
+      // ✅ Auto-advance to next video in playlist after a short delay
+      if (playlistId && playlistVideos.length > 0) {
+        const nextIdx = playlistVideos.findIndex((v) => v.id === id) + 1;
+        if (nextIdx > 0 && nextIdx < playlistVideos.length) {
+          const nextVideo = playlistVideos[nextIdx];
+          setTimeout(() => {
+            window.location.href = `/app/watch/${nextVideo.id}?playlistId=${playlistId}`;
+          }, 2000); // 2 second delay so user sees completion
+        }
+      }
     }
   };
 
@@ -433,6 +447,54 @@ export default function WatchPage({
     };
   }, [video]);
 
+  // ✅ FIX: Periodic currentTime save every 5 seconds while playing.
+  // This ensures the DB always has a recent position even when the user
+  // refreshes the browser mid-video (React cleanup doesn't fire on hard refresh).
+  useEffect(() => {
+    if (!video) return;
+
+    const saveInterval = setInterval(() => {
+      if (!playerRef.current) return;
+      const ytState = playerRef.current.getPlayerState();
+      if (ytState !== YT_PLAYER_STATE.PLAYING) return;
+
+      const ct = playerRef.current.getCurrentTime();
+      if (ct <= 0) return;
+
+      // Silently PATCH currentTime to the DB
+      fetch(`/api/videos/${video.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentTime: Math.floor(ct) }),
+      }).catch(() => {}); // fire-and-forget, ignore errors
+    }, 5000); // every 5 seconds
+
+    return () => clearInterval(saveInterval);
+  }, [video]);
+
+  // ✅ FIX: beforeunload beacon — last-chance save when tab is closed or refreshed.
+  // navigator.sendBeacon is the ONLY reliable API that fires on hard refresh/close.
+  // sendBeacon only supports POST, so we use the dedicated /position endpoint.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const v = videoRef.current;
+      if (!v || !playerRef.current) return;
+
+      const ct = playerRef.current.getCurrentTime?.();
+      if (!ct || ct <= 0) return;
+
+      // sendBeacon is fire-and-forget and works reliably on page unload
+      const payload = JSON.stringify({ currentTime: Math.floor(ct) });
+      navigator.sendBeacon(
+        `/api/videos/${v.id}/position`,
+        new Blob([payload], { type: "application/json" })
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []); // mount once — uses videoRef + playerRef (both refs, always current)
+
   if (!mounted || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
@@ -500,10 +562,10 @@ export default function WatchPage({
         </div>
       )}
 
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 w-full max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className={`${showPlaylist && playlistId ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300`}>
+          <div className={`${showPlaylist && playlistId && playlistVideos.length > 0 ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300`}>
             {/* Video Player - Phase 1: Native YouTube IFrame */}
             <div className="mb-6">
               <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
@@ -586,9 +648,9 @@ export default function WatchPage({
               <TabsContent value="description" className="space-y-4">
                 <Card className="p-6">
                   <h2 className="text-lg font-semibold text-foreground mb-4">About this lesson</h2>
-                  <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                    {video.description}
-                  </p>
+                  <div className="text-muted-foreground whitespace-pre-wrap leading-relaxed text-sm">
+                    <Linkify text={video.description} />
+                  </div>
                 </Card>
               </TabsContent>
 

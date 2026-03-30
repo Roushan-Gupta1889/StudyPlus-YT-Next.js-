@@ -19,6 +19,8 @@ interface WatchHistoryItem {
         thumbnail: string | null;
         duration: number | null;
         progress: number;
+        // Playlist memberships — returned by /api/history
+        playlistVideos: { playlistId: string }[];
     };
 }
 
@@ -148,7 +150,15 @@ export default function HistoryPage() {
                 <div className="space-y-3">
                     {history.map((item) => (
                         <Card key={item.id} className="overflow-hidden hover:shadow-card transition-all group relative">
-                            <Link href={`/app/watch?v=${item.video.id}`} className="flex flex-col sm:flex-row gap-4 p-4">
+                            <Link
+                                href={(() => {
+                                    const playlistId = item.video.playlistVideos?.[0]?.playlistId;
+                                    return playlistId
+                                        ? `/app/watch/${item.video.id}?playlistId=${playlistId}`
+                                        : `/app/watch/${item.video.id}`;
+                                })()}
+                                className="flex flex-col sm:flex-row gap-4 p-4"
+                            >
                                 {/* Thumbnail */}
                                 <div className="w-full sm:w-48 aspect-video bg-muted rounded-lg relative flex items-center justify-center flex-shrink-0 overflow-hidden">
                                     {item.video.thumbnail ? (
