@@ -67,7 +67,7 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
       >
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-sidebar-border">
-          <Link href="/app/dashboard" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-primary-foreground" />
             </div>
@@ -189,7 +189,7 @@ export function AppSidebar({ collapsed, onToggle, isMobile, mobileMenuOpen }: Ap
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         {!collapsed && (
-          <Link href="/app/dashboard" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-primary-foreground" />
             </div>

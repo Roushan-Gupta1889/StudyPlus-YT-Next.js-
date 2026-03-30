@@ -3,12 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X, Heart, Sparkles } from "lucide-react";
+import { BookOpen, Menu, X, Heart, Sparkles, LayoutDashboard, Settings, LogOut, FileText, ListVideo } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { useSession, signOut } from "next-auth/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { data: session, status } = useSession();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
@@ -47,12 +55,70 @@ export function Navbar() {
         {/* Desktop Auth + Theme */}
         <div className="hidden md:flex items-center gap-2">
           <ThemeToggle />
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Log in</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/signup">Start Free</Link>
-          </Button>
+          {status === "loading" ? (
+            <div className="w-20 h-8 bg-muted animate-pulse rounded-md" />
+          ) : session ? (
+            <div className="flex items-center gap-4 ml-2">
+              <HoverCard openDelay={100} closeDelay={150}>
+                <HoverCardTrigger asChild>
+                  <button type="button" className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
+                    <Avatar className="w-8 h-8 border border-border">
+                      <AvatarImage src={session.user?.image || ""} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                        {session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-foreground hidden lg:inline-block">
+                      {session.user?.name || session.user?.email?.split('@')[0]}
+                    </span>
+                  </button>
+                </HoverCardTrigger>
+                <HoverCardContent align="end" className="w-56 p-1">
+                  <div className="px-2 py-1.5 text-sm font-semibold">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{session.user?.name || "User"}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{session.user?.email}</p>
+                    </div>
+                  </div>
+                  <div className="-mx-1 my-1 h-px bg-muted" />
+                  <Link href="/app/dashboard" className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-foreground">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                  <Link href="/app/playlists" className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-foreground">
+                    <ListVideo className="mr-2 h-4 w-4" />
+                    <span>Playlists</span>
+                  </Link>
+                  <Link href="/app/notes" className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-foreground">
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span>Notes</span>
+                  </Link>
+                  <div className="-mx-1 my-1 h-px bg-muted" />
+                  <Link href="/app/settings" className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-foreground">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                  <div className="-mx-1 my-1 h-px bg-muted" />
+                  <button onClick={() => signOut()} className="w-full flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive hover:text-destructive-foreground text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </button>
+                </HoverCardContent>
+              </HoverCard>
+              <Button size="sm" asChild>
+                <Link href="/app/dashboard">Dashboard</Link>
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/login">Log in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/signup">Start Free</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -109,16 +175,41 @@ export function Navbar() {
 
               {/* Auth Buttons */}
               <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                <Button variant="outline" size="sm" asChild className="w-full">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    Log in
-                  </Link>
-                </Button>
-                <Button size="sm" asChild className="w-full">
-                  <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                    Start Free
-                  </Link>
-                </Button>
+                {status === "loading" ? (
+                  <div className="w-full h-9 bg-muted animate-pulse rounded-md" />
+                ) : session ? (
+                  <>
+                    <div className="flex items-center gap-3 px-2 py-2 mb-2">
+                      <Avatar className="w-8 h-8 border border-border">
+                        <AvatarImage src={session.user?.image || ""} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          {session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-foreground">
+                        {session.user?.name || session.user?.email?.split('@')[0]}
+                      </span>
+                    </div>
+                    <Button size="sm" asChild className="w-full">
+                      <Link href="/app/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                        Go to Dashboard
+                      </Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                        Log in
+                      </Link>
+                    </Button>
+                    <Button size="sm" asChild className="w-full">
+                      <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                        Start Free
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

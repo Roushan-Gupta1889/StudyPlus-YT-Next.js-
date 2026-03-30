@@ -2,6 +2,7 @@
 
 import { ReactNode, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { RotateBanner } from "@/components/app/RotateBanner";
 import { cn } from "@/lib/utils";
@@ -74,7 +75,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         >
                             <Menu className="w-5 h-5" />
                         </button>
-                        <span className="font-semibold text-foreground">StudyPlus</span>
+                        <Link href="/" className="font-semibold text-foreground">StudyPlus</Link>
                     </div>
                 )}
                 {children}
