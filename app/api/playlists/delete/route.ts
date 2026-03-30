@@ -7,7 +7,8 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    // ✅ FIX: Use session.user.id directly — no extra DB lookup needed
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -23,30 +24,19 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    // Verify ownership
+    // Verify ownership — find playlist and check userId in one query
     const playlist = await prisma.playlist.findUnique({
       where: { id },
     });
 
-    if (!playlist || playlist.userId !== user.id) {
+    if (!playlist || playlist.userId !== session.user.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        { error: "Playlist not found or access denied" },
+        { status: 403 }
       );
     }
 
-    // Delete playlist (this will cascade delete playlist_videos)
+    // Delete playlist (cascades to playlist_videos)
     await prisma.playlist.delete({
       where: { id },
     });

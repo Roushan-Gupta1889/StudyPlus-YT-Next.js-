@@ -80,7 +80,8 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    // ✅ FIX: Use session.user.id directly — no extra DB lookup needed
+    if (!session?.user?.id) {
       const { response, statusCode } = createErrorResponse(
         ErrorCode.UNAUTHORIZED,
         "Unauthorized",
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     // Rate limiting - 10 videos per minute
     try {
-      await limiter.check(10, session.user.email);
+      await limiter.check(10, session.user.id);
     } catch {
       const { response, statusCode } = createErrorResponse(
         ErrorCode.RATE_LIMIT_EXCEEDED,
@@ -123,24 +124,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response, { status: statusCode });
     }
 
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      const { response, statusCode } = createErrorResponse(
-        ErrorCode.NOT_FOUND,
-        "User not found",
-        404
-      );
-      return NextResponse.json(response, { status: statusCode });
-    }
-
     // Check if video already exists for this user
     const existingVideo = await prisma.video.findFirst({
       where: {
-        userId: user.id,
+        userId: session.user.id,
         youtubeId: youtubeId,
       },
     });
@@ -160,7 +147,7 @@ export async function POST(req: NextRequest) {
     // Create video in database
     const video = await prisma.video.create({
       data: {
-        userId: user.id,
+        userId: session.user.id,
         youtubeId: youtubeId,
         title: metadata.title,
         description: metadata.description,

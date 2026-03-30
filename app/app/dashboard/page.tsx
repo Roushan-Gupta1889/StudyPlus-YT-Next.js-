@@ -22,6 +22,15 @@ interface Video {
     progress: number;
     duration: number | null;
     thumbnail: string | null;
+    playlistVideos: { playlistId: string }[];
+}
+
+interface HistoryEntry {
+    id: string;
+    videoId: string;
+    watchTime: number;
+    watchedAt: string;
+    video: Video;
 }
 
 interface Playlist {
@@ -37,7 +46,7 @@ export default function DashboardPage() {
     const [showSearch, setShowSearch] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-    const [videos, setVideos] = useState<Video[]>([]);
+    const [inProgressVideos, setInProgressVideos] = useState<HistoryEntry[]>([]);
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
     // Format seconds to hours and minutes
@@ -63,15 +72,15 @@ export default function DashboardPage() {
                     setAnalytics(analyticsData);
                 }
 
-                // Fetch videos
-                const videosRes = await fetch("/api/videos");
-                if (videosRes.ok) {
-                    const videosData = await videosRes.json();
-                    // Filter videos with progress > 0 and < 100
-                    const inProgress = videosData.filter(
-                        (v: Video) => v.progress > 0 && v.progress < 100
+                // ✅ Use watch history so playlist context (playlistVideos) is available
+                const historyRes = await fetch("/api/history");
+                if (historyRes.ok) {
+                    const historyData: HistoryEntry[] = await historyRes.json();
+                    // Show only videos not yet completed, most recent first
+                    const inProgress = historyData.filter(
+                        (h) => h.video && h.video.progress < 100
                     );
-                    setVideos(inProgress.slice(0, 4));
+                    setInProgressVideos(inProgress.slice(0, 4));
                 }
 
                 // Fetch playlists
@@ -198,44 +207,52 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between mb-4 sm:mb-5">
                     <h2 className="text-base sm:text-lg font-semibold text-foreground">Continue Watching</h2>
                     <Button variant="ghost" size="sm" asChild>
-                        <Link href="/app/watch">View all</Link>
+                        <Link href="/app/history">View all</Link>
                     </Button>
                 </div>
-                {videos.length === 0 ? (
+                {inProgressVideos.length === 0 ? (
                     <div className="bg-card rounded-2xl border border-border p-8 text-center">
                         <p className="text-muted-foreground">No videos in progress. Start watching to see them here!</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {videos.map((video) => (
-                            <Link
-                                key={video.id}
-                                href={`/app/watch?v=${video.id}`}
-                                className="group bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/20 hover:shadow-card transition-all"
-                            >
-                                <div className="aspect-video bg-muted relative flex items-center justify-center">
-                                    {video.thumbnail ? (
-                                        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <>
-                                            <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors" />
-                                            <Play className="w-10 sm:w-12 h-10 sm:h-12 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
-                                        </>
-                                    )}
-                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
-                                        <div className="h-full bg-primary" style={{ width: `${video.progress}%` }} />
+                        {inProgressVideos.map((entry) => {
+                            const video = entry.video;
+                            // Build the correct watch URL — include playlistId if the video is in a playlist
+                            const playlistId = video.playlistVideos?.[0]?.playlistId;
+                            const watchHref = playlistId
+                                ? `/app/watch/${video.id}?playlistId=${playlistId}`
+                                : `/app/watch/${video.id}`;
+                            return (
+                                <Link
+                                    key={entry.id}
+                                    href={watchHref}
+                                    className="group bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/20 hover:shadow-card transition-all"
+                                >
+                                    <div className="aspect-video bg-muted relative flex items-center justify-center">
+                                        {video.thumbnail ? (
+                                            <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors" />
+                                                <Play className="w-10 sm:w-12 h-10 sm:h-12 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                                            </>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
+                                            <div className="h-full bg-primary" style={{ width: `${video.progress}%` }} />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="p-3 sm:p-4">
-                                    <h3 className="font-medium text-foreground mb-1 line-clamp-1 text-sm sm:text-base">
-                                        {video.title}
-                                    </h3>
-                                    <p className="text-xs sm:text-sm text-muted-foreground">
-                                        {video.channel} {video.duration && `· ${formatTime(video.duration)}`}
-                                    </p>
-                                </div>
-                            </Link>
-                        ))}
+                                    <div className="p-3 sm:p-4">
+                                        <h3 className="font-medium text-foreground mb-1 line-clamp-1 text-sm sm:text-base">
+                                            {video.title}
+                                        </h3>
+                                        <p className="text-xs sm:text-sm text-muted-foreground">
+                                            {video.channel} {video.duration && `· ${formatTime(video.duration)}`}
+                                        </p>
+                                    </div>
+                                </Link>
+                            );
+                        })}
                     </div>
                 )}
             </section>

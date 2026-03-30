@@ -7,7 +7,8 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    // ✅ FIX (Bug 2): Use session.user.id directly — no extra DB lookup needed
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -23,32 +24,24 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
     // Verify ownership
     const video = await prisma.video.findUnique({
       where: { id },
     });
 
-    if (!video || video.userId !== user.id) {
+    if (!video || video.userId !== session.user.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        { error: "Video not found or access denied" },
+        { status: 403 }
       );
     }
 
-    // Delete video
-    await prisma.video.delete({
+    // ✅ FIX (Bug 4): Soft delete — set inLibrary: false instead of hard deleting.
+    // This preserves watch history, notes, and playlist references.
+    // The video record remains intact; it just disappears from the library view.
+    await prisma.video.update({
       where: { id },
+      data: { inLibrary: false },
     });
 
     return NextResponse.json({ success: true });
