@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma";
 // PATCH /api/playlists/[id]/mark-iitm — Mark an existing playlist as an IITM course
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
@@ -18,7 +19,7 @@ export async function PATCH(
     // Verify the playlist belongs to the user
     const playlist = await prisma.playlist.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     });
@@ -29,7 +30,7 @@ export async function PATCH(
 
     // Update isIITM to true
     const updated = await prisma.playlist.update({
-      where: { id: params.id },
+      where: { id },
       data: { isIITM: true },
     });
 
