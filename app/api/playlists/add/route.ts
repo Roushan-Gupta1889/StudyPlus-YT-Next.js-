@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response, { status: statusCode });
     }
 
-    const { playlistUrl, playlistName } = await req.json();
+    const { playlistUrl, playlistName, isIITM } = await req.json();
 
     if (!playlistUrl) {
       const { response, statusCode } = createErrorResponse(
@@ -220,6 +220,7 @@ export async function POST(req: NextRequest) {
           description: `Imported from YouTube - ${playlistId}`,
           youtubePlaylistId: playlistId,
           nextPageToken: fetchedNextPageToken || null,
+          isIITM: isIITM === true,
         },
       });
 

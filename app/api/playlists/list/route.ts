@@ -7,7 +7,6 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    // ✅ FIX: Use session.user.id directly — no extra DB lookup needed
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -15,28 +14,62 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get all playlists for this user
-    const playlists = await prisma.playlist.findMany({
-      where: { userId: session.user.id },
-      include: {
-        _count: {
-          select: { videos: true },
-        },
-        videos: {
-          take: 1,
-          include: {
-            video: true,
+    // Fetch playlists and all IITM course YouTube playlist IDs in parallel
+    const [playlists, iitmCourses] = await Promise.all([
+      prisma.playlist.findMany({
+        where: { userId: session.user.id },
+        include: {
+          _count: {
+            select: { videos: true },
+          },
+          videos: {
+            take: 1,
+            include: {
+              video: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.iITMCourse.findMany({
+        select: { youtubePlaylistId: true },
+      }),
+    ]);
 
-    // Map to include thumbnail from first video
-    const playlistsWithThumbnail = playlists.map((playlist) => ({
-      ...playlist,
-      thumbnail: playlist.videos[0]?.video?.thumbnail || null,
-    }));
+    // Build a Set of all IITM YouTube playlist IDs for O(1) lookup
+    const iitmPlaylistIds = new Set(
+      iitmCourses.map((c) => c.youtubePlaylistId)
+    );
+
+    // Determine which playlists need their isIITM flag fixed in the DB
+    const toFix = playlists.filter(
+      (p) =>
+        !p.isIITM &&
+        p.youtubePlaylistId &&
+        iitmPlaylistIds.has(p.youtubePlaylistId)
+    );
+
+    // Silently backfill isIITM = true for any misclassified playlists
+    if (toFix.length > 0) {
+      await prisma.playlist.updateMany({
+        where: { id: { in: toFix.map((p) => p.id) } },
+        data: { isIITM: true },
+      }).catch((err) => console.error("[LIST_BACKFILL_IITM]", err));
+    }
+
+    // Map to include thumbnail and the corrected isIITM value
+    const playlistsWithThumbnail = playlists.map((playlist) => {
+      const isActuallyIITM =
+        playlist.isIITM ||
+        (!!playlist.youtubePlaylistId &&
+          iitmPlaylistIds.has(playlist.youtubePlaylistId));
+
+      return {
+        ...playlist,
+        isIITM: isActuallyIITM,
+        thumbnail: playlist.videos[0]?.video?.thumbnail || null,
+      };
+    });
 
     return NextResponse.json(playlistsWithThumbnail);
   } catch (error) {

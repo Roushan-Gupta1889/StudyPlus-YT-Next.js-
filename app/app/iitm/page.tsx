@@ -135,11 +135,19 @@ export default function IITMCurriculumPage() {
             const playlistsRes = await fetch("/api/playlists");
             if (playlistsRes.ok) {
                 const playlists = await playlistsRes.json();
+                // Match by name OR youtubePlaylistId (handles playlists imported before the isIITM fix)
                 const existingPlaylist = playlists.find((p: any) =>
-                    p.name === course.title && p.isIITM === true
+                    p.name === course.title || p.youtubePlaylistId === course.youtubePlaylistId
                 );
 
                 if (existingPlaylist) {
+                    // If this playlist wasn't marked as IITM, patch it now
+                    if (!existingPlaylist.isIITM) {
+                        await fetch(`/api/playlists/${existingPlaylist.id}/mark-iitm`, {
+                            method: "PATCH",
+                        }).catch(() => {}); // fire-and-forget, don't block navigation
+                    }
+
                     // Playlist already exists - use it
                     const detailsRes = await fetch(`/api/playlists/${existingPlaylist.id}`);
                     if (detailsRes.ok) {
@@ -166,6 +174,7 @@ export default function IITMCurriculumPage() {
                 body: JSON.stringify({
                     playlistName: course.title,
                     playlistUrl: `https://www.youtube.com/playlist?list=${course.youtubePlaylistId}`,
+                    isIITM: true,
                 }),
             });
 
