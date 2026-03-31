@@ -34,12 +34,15 @@ export async function GET(
         });
 
         const videos = playlistVideos.map((pv) => pv.video);
-        return NextResponse.json(videos);
+        // hasMore = true when the playlist was imported in chunks and more remain on YouTube
+        const hasMore = !!(playlist as any).nextPageToken;
+        return NextResponse.json({ videos, hasMore });
     } catch (error) {
         console.error("[PLAYLIST_GET_VIDEOS]", error);
         return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
 }
+
 
 // POST /api/playlists/[id]/videos - Add video to playlist
 export async function POST(

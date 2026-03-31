@@ -94,15 +94,17 @@ model Note {
 }
 
 model Playlist {
-  id          String          @id @default(cuid())
-  userId      String
-  name        String
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  isIITM      Boolean         @default(false)
-  videos      PlaylistVideo[]
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  isIITM            Boolean         @default(false)
+  youtubePlaylistId String?
+  nextPageToken     String?
+  videos            PlaylistVideo[]
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("playlists")

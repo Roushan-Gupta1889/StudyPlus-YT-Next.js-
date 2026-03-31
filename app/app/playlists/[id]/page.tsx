@@ -33,6 +33,8 @@ export default function PlaylistDetailPage({
   const [videos, setVideos] = useState<PlaylistVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -57,7 +59,7 @@ export default function PlaylistDetailPage({
 
       // Fetch videos in playlist
       const videosRes = await fetch(`/api/playlists/${id}/videos`);
-      const videosData = await videosRes.json(); // ✅ parse FIRST
+      const videosData = await videosRes.json();
 
       if (!videosRes.ok) {
         throw new Error(
@@ -67,7 +69,8 @@ export default function PlaylistDetailPage({
         );
       }
 
-      setVideos(videosData);
+      setVideos(Array.isArray(videosData) ? videosData : videosData.videos ?? []);
+      setHasMore(!!(videosData.hasMore ?? false));
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to load playlist"
@@ -104,6 +107,25 @@ export default function PlaylistDetailPage({
       );
     }
 
+  };
+
+  const loadMoreVideos = async () => {
+    if (!id || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/playlists/${id}/load-more`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to load more");
+      const data = await res.json();
+      if (data.videos && data.videos.length > 0) {
+        setVideos((prev) => [...prev, ...data.videos]);
+        toast.success(`Loaded ${data.videos.length} more videos`);
+      }
+      setHasMore(!!data.hasMore);
+    } catch (error) {
+      toast.error("Failed to load more videos");
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   if (!mounted || loading) {
@@ -217,6 +239,27 @@ export default function PlaylistDetailPage({
               </Button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Load More button */}
+      {hasMore && (
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={loadMoreVideos}
+            disabled={loadingMore}
+            variant="outline"
+            className="gap-2 min-w-[200px]"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading…
+              </>
+            ) : (
+              "⬇ Load 25 more videos"
+            )}
+          </Button>
         </div>
       )}
     </div>

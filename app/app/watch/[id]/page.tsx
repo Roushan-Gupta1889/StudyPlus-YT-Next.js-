@@ -60,7 +60,9 @@ export default function WatchPage({
   const [mounted, setMounted] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [completedCount, setCompletedCount] = useState(0);
-  const [showPlaylist, setShowPlaylist] = useState(true)
+  const [showPlaylist, setShowPlaylist] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Player ref (Phase 1: YouTube IFrame API)
   const playerRef = useRef<YouTubePlayerRef>(null);
@@ -141,8 +143,12 @@ export default function WatchPage({
     try {
       const response = await fetch(`/api/playlists/${pId}/videos`);
       if (!response.ok) return;
-      const videos = await response.json();
+      const data = await response.json();
+
+      // The videos endpoint returns the array; also check if playlist has more
+      const videos = Array.isArray(data) ? data : data.videos ?? [];
       setPlaylistVideos(videos);
+      setHasMore(!!(data.hasMore ?? false));
 
       // Calculate completed count
       const completedVideos = videos.filter((v: any) => v.completed).length;
@@ -154,6 +160,27 @@ export default function WatchPage({
       }
     } catch (error) {
       console.error("Failed to fetch playlist videos:", error);
+    }
+  };
+
+  const loadMoreVideos = async () => {
+    if (!playlistId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/playlists/${playlistId}/load-more`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to load more");
+      const data = await res.json();
+      if (data.videos && data.videos.length > 0) {
+        setPlaylistVideos((prev) => [...prev, ...data.videos]);
+        toast.success(`Loaded ${data.videos.length} more videos`);
+      }
+      setHasMore(!!data.hasMore);
+    } catch (error) {
+      toast.error("Failed to load more videos");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -772,6 +799,24 @@ export default function WatchPage({
                       </div>
                     </Link>
                   ))}
+
+                  {/* Load More button */}
+                  {hasMore && (
+                    <button
+                      onClick={loadMoreVideos}
+                      disabled={loadingMore}
+                      className="w-full mt-2 py-2 rounded-lg text-sm font-medium text-primary border border-primary/30 hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Loading…
+                        </>
+                      ) : (
+                        "Load more videos ⬇"
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Navigation */}

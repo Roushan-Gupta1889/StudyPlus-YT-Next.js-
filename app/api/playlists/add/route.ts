@@ -30,17 +30,17 @@ function extractPlaylistId(url: string): string | null {
 }
 
 // ✅ FIX 2: Use handleYouTubeError properly
-async function fetchPlaylistVideos(playlistId: string) {
+async function fetchPlaylistVideos(playlistId: string, pageToken?: string, maxPages = 3) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     throw new Error("YouTube API key not configured");
   }
 
   const videos = [];
-  let nextPageToken = undefined;
+  let nextPageToken: string | undefined = pageToken;
+  let lastPageToken: string | undefined = undefined;
 
-  // Fetch up to 3 pages (150 videos max)
-  for (let page = 0; page < 3; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const response: Response = await fetch(
       `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50&pageToken=${nextPageToken || ""}&key=${apiKey}`
     );
@@ -66,10 +66,11 @@ async function fetchPlaylistVideos(playlistId: string) {
     }
 
     nextPageToken = data.nextPageToken;
+    lastPageToken = data.nextPageToken; // remember the token for next-page after this batch
     if (!nextPageToken) break;
   }
 
-  return videos;
+  return { videos, nextPageToken: lastPageToken };
 }
 
 // Parse ISO 8601 duration to seconds
@@ -183,8 +184,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response, { status: statusCode });
     }
 
-    // Fetch playlist videos from YouTube
-    const playlistVideos = await fetchPlaylistVideos(playlistId);
+    // Fetch playlist videos from YouTube (first batch, up to 1 page = 50 videos)
+    const { videos: playlistVideos, nextPageToken: fetchedNextPageToken } = await fetchPlaylistVideos(playlistId, undefined, 1);
 
     if (playlistVideos.length === 0) {
       const { response, statusCode } = createErrorResponse(
@@ -217,6 +218,8 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           name: safeName,
           description: `Imported from YouTube - ${playlistId}`,
+          youtubePlaylistId: playlistId,
+          nextPageToken: fetchedNextPageToken || null,
         },
       });
 

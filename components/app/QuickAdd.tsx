@@ -25,12 +25,16 @@ export function QuickAdd() {
         setIsLoading(true);
 
         try {
-            const endpoint = activeTab === "video" ? "/api/videos" : "/api/playlists";
+            const endpoint = activeTab === "video" ? "/api/videos" : "/api/playlists/add";
 
             const res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ youtubeId: url }),
+                body: JSON.stringify(
+                    activeTab === "video"
+                        ? { youtubeId: url }
+                        : { playlistUrl: url }
+                ),
             });
 
             const data = await res.json();

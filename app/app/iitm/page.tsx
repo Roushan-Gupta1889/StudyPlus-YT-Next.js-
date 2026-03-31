@@ -160,18 +160,19 @@ export default function IITMCurriculumPage() {
                 { id: "course-load" }
             );
 
-            const response = await fetch("/api/playlists", {
+            const response = await fetch("/api/playlists/add", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    name: course.title,
-                    youtubeId: `https://www.youtube.com/playlist?list=${course.youtubePlaylistId}`,
-                    isIITM: true,
+                    playlistName: course.title,
+                    playlistUrl: `https://www.youtube.com/playlist?list=${course.youtubePlaylistId}`,
                 }),
             });
 
             if (response.ok) {
-                const playlist = await response.json();
+                const data = await response.json();
+                // /api/playlists/add returns { playlist, videosAdded }
+                const playlist = data.playlist;
 
                 // Fetch the playlist details to get videos
                 const playlistDetailsRes = await fetch(`/api/playlists/${playlist.id}`);
