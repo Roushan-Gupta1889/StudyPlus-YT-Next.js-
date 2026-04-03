@@ -31,7 +31,8 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
 
 
 
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds: number | undefined) => {
+    if (seconds === undefined || seconds === null || isNaN(seconds)) return "--:--";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -158,7 +159,10 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
               {(["video", "playlist"] as const).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setVideos([]); // Clear results when switching tabs to avoid stale data
+                  }}
                   className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === tab
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
