@@ -99,7 +99,7 @@
 | **Total Watch Time** | Cumulative learning hours tracked |
 | **Videos Completed** | Count of fully completed videos |
 | **Learning Streaks** | Current and longest daily streak tracking |
-| **Weekly Activity Chart** | Visual bar chart of this week's activity (hours per day, video count, "Today" indicator) |
+| **Weekly Activity Chart** | Visual bar chart of this week's activity (hours per day, video count, "Today" indicator)    |
 | **Stats Cards** | Animated stat cards with trend indicators |
 
 ### 🎓 IITM BS Degree Curriculum
