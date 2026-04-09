@@ -659,7 +659,7 @@ export default function WatchPage({
                   </TabsTrigger>
                   <TabsTrigger value="comments" className="px-3 py-2 text-xs sm:text-sm">
                     <span className="sm:hidden">Chat</span>
-                    <span className="hidden sm:inline">Comments</span>
+                    <span className="hidden sm:inline">Slides</span>
                   </TabsTrigger>
                   <TabsTrigger value="attachments" className="px-3 py-2 text-xs sm:text-sm">
                     <span className="sm:hidden">Files</span>
