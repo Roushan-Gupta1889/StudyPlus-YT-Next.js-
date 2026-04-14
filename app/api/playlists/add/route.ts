@@ -184,6 +184,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response, { status: statusCode });
     }
 
+    // Check if playlist is already imported
+    const existingPlaylist = await prisma.playlist.findFirst({
+      where: {
+        userId: user.id,
+        youtubePlaylistId: playlistId,
+      },
+    });
+
+    if (existingPlaylist) {
+      const { response, statusCode } = createErrorResponse(
+        ErrorCode.INVALID_INPUT,
+        "This playlist has already been imported",
+        400
+      );
+      return NextResponse.json(response, { status: statusCode });
+    }
+
     // Fetch playlist videos from YouTube (first batch, up to 1 page = 50 videos)
     const { videos: playlistVideos, nextPageToken: fetchedNextPageToken } = await fetchPlaylistVideos(playlistId, undefined, 1);
 

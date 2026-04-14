@@ -40,7 +40,7 @@ export function QuickAdd() {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error || "Failed to add content");
+                throw new Error(data?.error?.message || data?.error || "Failed to add content");
             }
 
             toast.success(`${activeTab === "video" ? "Video" : "Playlist"} added successfully!`);

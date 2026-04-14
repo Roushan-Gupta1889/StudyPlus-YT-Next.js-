@@ -130,7 +130,7 @@ export const YouTubeSearch = ({ onClose }: YouTubeSearchProps) => {
       if (!res.ok) {
         const errorData = await res.json();
         console.error("Playlist import error response:", errorData);
-        throw new Error(errorData.error || "Failed to import playlist");
+        throw new Error(errorData?.error?.message || errorData?.error || "Failed to import playlist");
       }
 
       toast.success("Playlist imported successfully!");
