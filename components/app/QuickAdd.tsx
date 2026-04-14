@@ -47,8 +47,8 @@ export function QuickAdd() {
             setUrl("");
             router.refresh(); // Refresh dashboard data
 
-            // Optional: Redirect to respective page
-            // router.push(activeTab === "video" ? "/app/videos" : "/app/playlists");
+            // Redirect to respective page
+            router.push(activeTab === "video" ? "/app/videos" : "/app/playlists");
         } catch (error) {
             console.error("Quick Add Error:", error);
             toast.error(error instanceof Error ? error.message : "Something went wrong");
