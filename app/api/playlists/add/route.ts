@@ -213,6 +213,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response, { status: statusCode });
     }
 
+    // Fetch real playlist metadata (title and description)
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    let fetchedTitle = "";
+    let fetchedDescription = "";
+
+    if (apiKey) {
+      try {
+        const playlistDetailsRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${playlistId}&key=${apiKey}`
+        );
+        if (playlistDetailsRes.ok) {
+          const detailsData = await playlistDetailsRes.json();
+          if (detailsData.items && detailsData.items.length > 0) {
+            fetchedTitle = detailsData.items[0].snippet?.title || "";
+            fetchedDescription = detailsData.items[0].snippet?.description || "";
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch playlist details", err);
+      }
+    }
+
     // Fetch video durations
     const videoIds = playlistVideos.map((v) => v.youtubeId);
     const videoDetails = await fetchVideoDetails(videoIds);
@@ -222,10 +244,12 @@ export async function POST(req: NextRequest) {
     const willTruncate = totalVideos > MAX_VIDEOS_PER_PLAYLIST;
     const videosToImport = playlistVideos.slice(0, MAX_VIDEOS_PER_PLAYLIST);
 
-    // ✅ FIX 5: Sanitize playlist name
+    // ✅ FIX 5: Sanitize playlist name, fallback to fetched title if name not provided
     const safeName = playlistName
       ? sanitizeName(playlistName)
-      : `Playlist - ${new Date().toLocaleDateString()}`;
+      : fetchedTitle
+        ? sanitizeName(fetchedTitle)
+        : `Playlist - ${new Date().toLocaleDateString()}`;
 
     // ✅ FIX 4: Wrap everything in a transaction (with increased timeout for large playlists)
     const result = await prisma.$transaction(async (tx) => {
@@ -234,7 +258,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId: user.id,
           name: safeName,
-          description: `Imported from YouTube - ${playlistId}`,
+          description: fetchedDescription || "",
           youtubePlaylistId: playlistId,
           nextPageToken: fetchedNextPageToken || null,
           isIITM: isIITM === true,
@@ -267,6 +291,7 @@ export async function POST(req: NextRequest) {
               thumbnail: videoData.thumbnail,
               channel: videoData.channel,
               duration: duration,
+              inLibrary: false, // Prevent playlist videos from directly entering standalone Library
             },
           });
         }

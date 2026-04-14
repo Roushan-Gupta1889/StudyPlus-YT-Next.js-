@@ -8,6 +8,13 @@ import Link from "next/link";
 import { YouTubeSearch } from "@/components/app/YouTubeSearch";
 import { toast } from "sonner";
 import { QuickAdd } from "@/components/app/QuickAdd";
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+} from "@/components/ui/carousel";
 
 interface AnalyticsData {
     currentStreak: number;
@@ -80,14 +87,14 @@ export default function DashboardPage() {
                     const inProgress = historyData.filter(
                         (h) => h.video && h.video.progress < 100
                     );
-                    setInProgressVideos(inProgress.slice(0, 4));
+                    setInProgressVideos(inProgress);
                 }
 
                 // Fetch playlists
                 const playlistsRes = await fetch("/api/playlists");
                 if (playlistsRes.ok) {
                     const playlistsData = await playlistsRes.json();
-                    setPlaylists(playlistsData.slice(0, 3)); // Top 3
+                    setPlaylists(playlistsData);
                 }
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
@@ -215,45 +222,54 @@ export default function DashboardPage() {
                         <p className="text-muted-foreground">No videos in progress. Start watching to see them here!</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {inProgressVideos.map((entry) => {
-                            const video = entry.video;
-                            // Build the correct watch URL — include playlistId if the video is in a playlist
-                            const playlistId = video.playlistVideos?.[0]?.playlistId;
-                            const watchHref = playlistId
-                                ? `/app/watch/${video.id}?playlistId=${playlistId}`
-                                : `/app/watch/${video.id}`;
-                            return (
-                                <Link
-                                    key={entry.id}
-                                    href={watchHref}
-                                    className="group bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/20 hover:shadow-card transition-all"
-                                >
-                                    <div className="aspect-video bg-muted relative flex items-center justify-center">
-                                        {video.thumbnail ? (
-                                            <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <>
-                                                <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors" />
-                                                <Play className="w-10 sm:w-12 h-10 sm:h-12 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
-                                            </>
-                                        )}
-                                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
-                                            <div className="h-full bg-primary" style={{ width: `${video.progress}%` }} />
-                                        </div>
-                                    </div>
-                                    <div className="p-3 sm:p-4">
-                                        <h3 className="font-medium text-foreground mb-1 line-clamp-1 text-sm sm:text-base">
-                                            {video.title}
-                                        </h3>
-                                        <p className="text-xs sm:text-sm text-muted-foreground">
-                                            {video.channel} {video.duration && `· ${formatTime(video.duration)}`}
-                                        </p>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                    <Carousel opts={{ align: "start" }} className="w-full relative">
+                        <CarouselContent className="ml-0">
+                            {inProgressVideos.map((entry) => {
+                                const video = entry.video;
+                                // Build the correct watch URL — include playlistId if the video is in a playlist
+                                const playlistId = video.playlistVideos?.[0]?.playlistId;
+                                const watchHref = playlistId
+                                    ? `/app/watch/${video.id}?playlistId=${playlistId}`
+                                    : `/app/watch/${video.id}`;
+                                return (
+                                    <CarouselItem key={entry.id} className="sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                                        <Link
+                                            href={watchHref}
+                                            className="block h-full group bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/20 hover:shadow-card transition-all"
+                                        >
+                                            <div className="aspect-video bg-muted relative flex items-center justify-center">
+                                                {video.thumbnail ? (
+                                                    <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <>
+                                                        <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors" />
+                                                        <Play className="w-10 sm:w-12 h-10 sm:h-12 text-muted-foreground/30 group-hover:text-primary/50 transition-colors" />
+                                                    </>
+                                                )}
+                                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
+                                                    <div className="h-full bg-primary" style={{ width: `${video.progress}%` }} />
+                                                </div>
+                                            </div>
+                                            <div className="p-3 sm:p-4">
+                                                <h3 className="font-medium text-foreground mb-1 line-clamp-1 text-sm sm:text-base">
+                                                    {video.title}
+                                                </h3>
+                                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                                    {video.channel} {video.duration && `· ${formatTime(video.duration)}`}
+                                                </p>
+                                            </div>
+                                        </Link>
+                                    </CarouselItem>
+                                );
+                            })}
+                        </CarouselContent>
+                        {inProgressVideos.length > 2 && (
+                            <>
+                                <CarouselPrevious className="hidden sm:flex -left-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                                <CarouselNext className="hidden sm:flex -right-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                            </>
+                        )}
+                    </Carousel>
                 )}
             </section>
 
@@ -270,48 +286,57 @@ export default function DashboardPage() {
                         <p className="text-muted-foreground">No playlists yet. Create one to organize your videos!</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {playlists.map((playlist) => {
-                            const progress = playlist.totalVideos > 0
-                                ? Math.round((playlist.completedVideos / playlist.totalVideos) * 100)
-                                : 0;
-                            const isComplete = progress === 100;
-                            return (
-                                <Link
-                                    key={playlist.id}
-                                    href="/app/playlists"
-                                    className="bg-card rounded-2xl border border-border p-4 sm:p-5 hover:border-primary/20 hover:shadow-card transition-all"
-                                >
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-medium text-foreground mb-1 truncate">{playlist.name}</h3>
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                                {playlist.completedVideos}/{playlist.totalVideos} videos · {formatTime(playlist.totalDuration)}
-                                            </p>
-                                        </div>
-                                        {/* Progress Ring */}
-                                        <div className="relative w-10 h-10 sm:w-12 sm:h-12 ml-3 flex-shrink-0">
-                                            <svg className="w-10 h-10 sm:w-12 sm:h-12 -rotate-90">
-                                                <circle cx="50%" cy="50%" r="35%" className="fill-none stroke-muted stroke-[3]" />
-                                                <circle
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    r="35%"
-                                                    className={`fill-none stroke-[3] transition-all ${isComplete ? "stroke-success" : "stroke-primary"
-                                                        }`}
-                                                    strokeDasharray={`${progress * 1.256} 125.6`}
-                                                    strokeLinecap="round"
-                                                />
-                                            </svg>
-                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-medium text-foreground">
-                                                {progress}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
+                    <Carousel opts={{ align: "start" }} className="w-full relative">
+                        <CarouselContent className="ml-0">
+                            {playlists.map((playlist) => {
+                                const progress = playlist.totalVideos > 0
+                                    ? Math.round((playlist.completedVideos / playlist.totalVideos) * 100)
+                                    : 0;
+                                const isComplete = progress === 100;
+                                return (
+                                    <CarouselItem key={playlist.id} className="sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                                        <Link
+                                            href="/app/playlists"
+                                            className="block h-full bg-card rounded-2xl border border-border p-4 sm:p-5 hover:border-primary/20 hover:shadow-card transition-all"
+                                        >
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-medium text-foreground mb-1 truncate">{playlist.name}</h3>
+                                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                                        {playlist.completedVideos}/{playlist.totalVideos} videos · {formatTime(playlist.totalDuration)}
+                                                    </p>
+                                                </div>
+                                                {/* Progress Ring */}
+                                                <div className="relative w-10 h-10 sm:w-12 sm:h-12 ml-3 flex-shrink-0">
+                                                    <svg className="w-10 h-10 sm:w-12 sm:h-12 -rotate-90">
+                                                        <circle cx="50%" cy="50%" r="35%" className="fill-none stroke-muted stroke-[3]" />
+                                                        <circle
+                                                            cx="50%"
+                                                            cy="50%"
+                                                            r="35%"
+                                                            className={`fill-none stroke-[3] transition-all ${isComplete ? "stroke-success" : "stroke-primary"
+                                                                }`}
+                                                            strokeDasharray={`${progress * 1.256} 125.6`}
+                                                            strokeLinecap="round"
+                                                        />
+                                                    </svg>
+                                                    <span className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-medium text-foreground">
+                                                        {progress}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    </CarouselItem>
+                                );
+                            })}
+                        </CarouselContent>
+                        {playlists.length > 2 && (
+                            <>
+                                <CarouselPrevious className="hidden sm:flex -left-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                                <CarouselNext className="hidden sm:flex -right-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                            </>
+                        )}
+                    </Carousel>
                 )}
             </section>
         </div>

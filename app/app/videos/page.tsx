@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -32,6 +33,7 @@ export default function VideosPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [viewMode, setViewMode] = useState<"grid" | "carousel">("carousel");
 
   // Fetch videos
   useEffect(() => {
@@ -177,6 +179,58 @@ export default function VideosPage() {
       toast.error("Failed to delete video");
     }
   };
+
+  const renderVideoCard = (video: Video) => (
+    <Link key={video.id} href={`/app/watch/${video.id}`} className="block h-full">
+      <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
+        {/* Thumbnail Section */}
+        <div
+          className="flex-1 relative group bg-muted"
+          style={{
+            backgroundImage: `url(${video.thumbnail})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            minHeight: "180px",
+          }}
+        >
+          {/* Delete Button */}
+          <div className="absolute top-2 right-2 z-10">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteVideo(video.id);
+              }}
+              className="text-destructive hover:bg-destructive/10 bg-white/80 hover:bg-white"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Duration Badge */}
+          <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
+            {String(Math.floor(video.duration / 3600)).padStart(2, "0")}:{String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:{String(video.duration % 60).padStart(2, "0")}
+          </div>
+
+          {/* Hover Overlay */}
+          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <Play className="w-12 h-12 text-white" />
+          </div>
+        </div>
+
+        {/* Info Section - Below Thumbnail */}
+        <div className="p-4 bg-card">
+          <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
+            {video.title}
+          </h3>
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {video.channel}
+          </p>
+        </div>
+      </Card>
+    </Link>
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
@@ -353,58 +407,37 @@ export default function VideosPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {videos.map((video) => (
-            <Link key={video.id} href={`/app/watch/${video.id}`}>
-              <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col">
-                {/* Thumbnail Section */}
-                <div
-                  className="flex-1 relative group bg-muted"
-                  style={{
-                    backgroundImage: `url(${video.thumbnail})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    minHeight: "180px",
-                  }}
-                >
-                  {/* Delete Button */}
-                  <div className="absolute top-2 right-2 z-10">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleDeleteVideo(video.id);
-                      }}
-                      className="text-destructive hover:bg-destructive/10 bg-white/80 hover:bg-white"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Duration Badge */}
-                  <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
-                    {String(Math.floor(video.duration / 3600)).padStart(2, "0")}:{String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:{String(video.duration % 60).padStart(2, "0")}
-                  </div>
-
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <Play className="w-12 h-12 text-white" />
-                  </div>
-                </div>
-
-                {/* Info Section - Below Thumbnail */}
-                <div className="p-4 bg-card">
-                  <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
-                    {video.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground line-clamp-1">
-                    {video.channel}
-                  </p>
-                </div>
-              </Card>
-            </Link>
-          ))}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-4 mt-2">
+            <div className="flex items-center gap-2">
+              <Play className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Library</h2>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setViewMode(v => v === "carousel" ? "grid" : "carousel")}>
+              {viewMode === "carousel" ? "View all" : "Show less"}
+            </Button>
+          </div>
+          {viewMode === "carousel" ? (
+            <Carousel opts={{ align: "start" }} className="w-full relative">
+              <CarouselContent>
+                {videos.map((video) => (
+                  <CarouselItem key={video.id} className="sm:basis-1/2 lg:basis-1/3 xl:basis-1/4">
+                    {renderVideoCard(video)}
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              {videos.length > 2 && (
+                <>
+                  <CarouselPrevious className="hidden sm:flex -left-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                  <CarouselNext className="hidden sm:flex -right-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                </>
+              )}
+            </Carousel>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {videos.map((video) => renderVideoCard(video))}
+            </div>
+          )}
         </div>
       )}
     </div>

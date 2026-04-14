@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -37,6 +38,8 @@ export default function PlaylistsPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [importingPlaylistId, setImportingPlaylistId] = useState<string | null>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [viewModeIITM, setViewModeIITM] = useState<"grid" | "carousel">("carousel");
+  const [viewModeGeneral, setViewModeGeneral] = useState<"grid" | "carousel">("carousel");
 
   // Split playlists into IITM and general
   const iitmPlaylists = playlists.filter((p) => p.isIITM);
@@ -307,9 +310,11 @@ export default function PlaylistsPage() {
           <p className="text-xs text-muted-foreground mb-2">
             {playlist._count?.videos || 0} video{(playlist._count?.videos || 0) !== 1 ? "s" : ""}
           </p>
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            {playlist.description}
-          </p>
+          {playlist.description && !playlist.description.startsWith("Imported from YouTube") && (
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              {playlist.description}
+            </p>
+          )}
         </div>
       </Card>
     </Link>
@@ -327,6 +332,7 @@ export default function PlaylistsPage() {
         </div>
 
         <div className="flex gap-2">
+
           {playlists.length > 0 && (
             <Button
               variant="outline"
@@ -488,27 +494,55 @@ export default function PlaylistsPage() {
           {/* 🎓 IITM BS Courses Section */}
           {iitmPlaylists.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <GraduationCap className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-lg font-semibold text-foreground">IITM BS Courses</h2>
-                <Badge variant="secondary" className="text-xs">
-                  {iitmPlaylists.length}
-                </Badge>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-semibold text-foreground">IITM BS Courses</h2>
+                  <Badge variant="secondary" className="text-xs">
+                    {iitmPlaylists.length}
+                  </Badge>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setViewModeIITM(v => v === "carousel" ? "grid" : "carousel")}>
+                  {viewModeIITM === "carousel" ? "View all" : "Show less"}
+                </Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {iitmPlaylists.map((playlist) => renderPlaylistCard(playlist, true))}
-              </div>
+              {viewModeIITM === "carousel" ? (
+                <Carousel opts={{ align: "start" }} className="w-full relative">
+                  <CarouselContent>
+                    {iitmPlaylists.map((playlist) => (
+                      <CarouselItem key={playlist.id} className="sm:basis-1/2 lg:basis-1/3">
+                        {renderPlaylistCard(playlist, true)}
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  {iitmPlaylists.length > 2 && (
+                    <>
+                      <CarouselPrevious className="hidden sm:flex -left-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                      <CarouselNext className="hidden sm:flex -right-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                    </>
+                  )}
+                </Carousel>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {iitmPlaylists.map((playlist) => renderPlaylistCard(playlist, true))}
+                </div>
+              )}
             </div>
           )}
 
           {/* 📚 My Playlists Section */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Play className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">My Playlists</h2>
-              <Badge variant="secondary" className="text-xs">
-                {generalPlaylists.length}
-              </Badge>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Play className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">My Playlists</h2>
+                <Badge variant="secondary" className="text-xs">
+                  {generalPlaylists.length}
+                </Badge>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setViewModeGeneral(v => v === "carousel" ? "grid" : "carousel")}>
+                {viewModeGeneral === "carousel" ? "View all" : "Show less"}
+              </Button>
             </div>
             {generalPlaylists.length === 0 ? (
               <Card className="p-8 text-center border-dashed">
@@ -520,6 +554,22 @@ export default function PlaylistsPage() {
                   Add Playlist
                 </Button>
               </Card>
+            ) : viewModeGeneral === "carousel" ? (
+              <Carousel opts={{ align: "start" }} className="w-full relative">
+                <CarouselContent>
+                  {generalPlaylists.map((playlist) => (
+                    <CarouselItem key={playlist.id} className="sm:basis-1/2 lg:basis-1/3">
+                      {renderPlaylistCard(playlist, false)}
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {generalPlaylists.length > 2 && (
+                  <>
+                    <CarouselPrevious className="hidden sm:flex -left-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                    <CarouselNext className="hidden sm:flex -right-4 bg-background/80 hover:bg-background border-border shadow-sm z-10" />
+                  </>
+                )}
+              </Carousel>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {generalPlaylists.map((playlist) => renderPlaylistCard(playlist, false))}
