@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { ArrowLeft, Loader2, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Trash2, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Linkify } from "@/components/ui/linkify";
 
 interface PlaylistVideo {
   id: string;
@@ -21,6 +22,7 @@ interface Playlist {
   id: string;
   name: string;
   description?: string;
+  youtubePlaylistId?: string | null;
 }
 
 export default function PlaylistDetailPage({
@@ -35,11 +37,28 @@ export default function PlaylistDetailPage({
   const [mounted, setMounted] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     fetchPlaylistDetails();
   }, [id]);
+
+  const handleSyncMetadata = async (playlistId: string) => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/playlists/${playlistId}/sync`, { method: "POST" });
+      if (res.ok) {
+        const updated = await res.json();
+        setPlaylist(prev => prev ? { ...prev, description: updated.description } : prev);
+      }
+    } catch (error) {
+      console.error("Failed to sync metadata", error);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchPlaylistDetails = async () => {
     try {
@@ -56,6 +75,11 @@ export default function PlaylistDetailPage({
       }
 
       setPlaylist(playlistData);
+
+      // Auto-sync if description is legacy placeholder
+      if (playlistData.description?.startsWith("Imported from YouTube") && playlistData.youtubePlaylistId) {
+          handleSyncMetadata(playlistData.id);
+      }
 
       // Fetch videos in playlist
       const videosRes = await fetch(`/api/playlists/${id}/videos`);
@@ -164,10 +188,33 @@ export default function PlaylistDetailPage({
           </Button>
         </Link>
 
-        <h1 className="text-3xl font-bold text-foreground mb-2">{playlist.name}</h1>
-        {playlist.description && (
-          <p className="text-muted-foreground">{playlist.description}</p>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
+           <div>
+             <h1 className="text-3xl font-bold text-foreground mb-2">{playlist.name}</h1>
+           </div>
+           {playlist.youtubePlaylistId && (
+             <Button 
+               variant="outline" 
+               size="sm" 
+               onClick={() => handleSyncMetadata(playlist.id)}
+               disabled={syncing}
+             >
+               <RefreshCcw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+               {syncing ? 'Syncing...' : 'Sync Info'}
+             </Button>
+           )}
+        </div>
+
+        {playlist.description && !playlist.description.startsWith("Imported from YouTube") ? (
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap max-w-3xl border-l-2 border-primary/20 pl-4 py-1 my-4">
+            <Linkify text={playlist.description} />
+          </div>
+        ) : playlist.description?.startsWith("Imported from YouTube") && (
+          <p className="text-sm text-muted-foreground italic mt-2">
+             No description available. (Syncing...)
+          </p>
         )}
+        
         <p className="text-sm text-muted-foreground mt-4">
           {videos.length} video{videos.length !== 1 ? "s" : ""}
         </p>
@@ -191,12 +238,18 @@ export default function PlaylistDetailPage({
               {/* Thumbnail with Duration */}
               <Link href={`/app/watch/${video.id}?playlistId=${id}`} className="flex-shrink-0">
                 <div className="relative w-32 sm:w-40 h-20 sm:h-24 bg-muted rounded overflow-hidden">
-                  <Image
-                    src={video.thumbnail}
-                    alt={video.title}
-                    fill
-                    className="object-cover group-hover:opacity-75 transition-opacity"
-                  />
+                  {video.thumbnail ? (
+                    <Image
+                      src={video.thumbnail}
+                      alt={video.title}
+                      fill
+                      className="object-cover group-hover:opacity-75 transition-opacity"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-muted">
+                      <Play className="w-6 h-6 opacity-30" />
+                    </div>
+                  )}
                   {/* Duration Overlay */}
                   <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
                     {String(Math.floor(video.duration / 3600)).padStart(2, "0")}:{String(Math.floor((video.duration % 3600) / 60)).padStart(2, "0")}:{String(video.duration % 60).padStart(2, "0")}
@@ -257,7 +310,7 @@ export default function PlaylistDetailPage({
                 Loading…
               </>
             ) : (
-              "⬇ Load 25 more videos"
+              "Load more videos"
             )}
           </Button>
         </div>
